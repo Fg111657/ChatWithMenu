@@ -1,25 +1,27 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material-next/Button';
 
-function App() {
+
+export default function App(props) {
+  const [name, setName ]= React.useState("Felix")
+
+
+
+
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className='App'>
+      <h1>Hello {name}.</h1>
+      <h2>Start editing to see some magic happen!</h2>
+      <TextField value= {name} onChange={(event) => {
+    setName(event.target.value);
+  }} />
+  <Button>Food Allergies       </Button>
+  <Button> Diet </Button>
     </div>
   );
 }
 
-export default App;
+// Log to console
+console.log('')
