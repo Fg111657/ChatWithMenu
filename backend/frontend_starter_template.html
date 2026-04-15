@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Table - Frontend Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+        }
+
+        .auth-section {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f5f5f5;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .result pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .success {
+            background: #efe;
+            color: #090;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .connection-item {
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .connection-item h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .connection-item p {
+            color: #666;
+            font-size: 14px;
+            margin: 3px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .question-item {
+            padding: 15px;
+            background: #f0f7ff;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .trust-score {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .trust-bar {
+            flex: 1;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 10px;
+        }
+
+        .trust-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+            transition: width 0.3s;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ My Table - API Demo</h1>
+            <p>Test all 18 My Table API endpoints with real authentication</p>
+        </div>
+
+        <div class="auth-section" id="authSection">
+            <h2>🔐 Authentication</h2>
+            <div class="input-group">
+                <label>JWT Token (from Supabase or generate test token):</label>
+                <textarea id="jwtToken" rows="3" placeholder="Paste JWT token here or generate test token..."></textarea>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="saveToken()">💾 Save Token</button>
+                <button onclick="generateTestToken()">🔧 Generate Test Token</button>
+            </div>
+            <div id="authStatus"></div>
+        </div>
+
+        <div class="grid">
+            <!-- Table Connections -->
+            <div class="card">
+                <h2>👥 Table Connections</h2>
+
+                <div class="input-group">
+                    <label>Invite Email:</label>
+                    <input type="email" id="inviteEmail" placeholder="friend@example.com">
+                </div>
+                <div class="input-group">
+                    <label>Reason (min 20 chars):</label>
+                    <textarea id="inviteReason" rows="2" placeholder="We met at the gluten-free meetup and share similar dietary needs..."></textarea>
+                </div>
+                <button onclick="sendInvitation()">📨 Send Invitation</button>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+                <button onclick="getConnections()">📋 List My Table</button>
+
+                <div id="connectionsResult" class="result hidden"></div>
+            </div>
+
+            <!-- Questions -->
+            <div class="card">
+                <h2>❓ Ask Question</h2>
+
+                <div class="input-group">
+                    <label>Restaurant ID:</label>
+                    <input type="number" id="restaurantId" value="1">
+                </div>
+                <div class="input-group">
+                    <label>Question Template:</label>
+                    <select id="templateId">
+                        <option value="can_eat_safely">Can I eat safely?</option>
+                        <option value="what_worked">What worked?</option>
+                        <option value="kitchen_understands">Kitchen understands?</option>
+                        <option value="has_allergen_binder">Has allergen binder?</option>
+                        <option value="change_gloves">Did they change gloves?</option>
+                        <option value="trust_again">Would you trust again?</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Dietary Restriction (optional):</label>
+                    <input type="text" id="dietaryRestriction" placeholder="gluten_free">
+                </div>
+                <button onclick="askQuestion()">❓ Ask Question</button>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+                <button onclick="listQuestions()">📋 List Questions</button>
+
+                <div id="questionsResult" class="result hidden"></div>
+            </div>
+
+            <!-- Answers -->
+            <div class="card">
+                <h2>💬 Answer Question</h2>
+
+                <div class="input-group">
+                    <label>Question ID:</label>
+                    <input type="number" id="questionId" value="1">
+                </div>
+                <div class="input-group">
+                    <label>Answer:</label>
+                    <textarea id="answerText" rows="3" placeholder="Yes, I ate there safely! They were very careful about cross-contact..."></textarea>
+                </div>
+                <div class="input-group">
+                    <label>What You Ordered (optional):</label>
+                    <input type="text" id="whatOrdered" placeholder="Grilled chicken with steamed vegetables">
+                </div>
+                <button onclick="submitAnswer()">💬 Submit Answer</button>
+
+                <div id="answersResult" class="result hidden"></div>
+            </div>
+
+            <!-- Safety Signals -->
+            <div class="card">
+                <h2>🛡️ Safety Signal</h2>
+
+                <div class="input-group">
+                    <label>Restaurant ID:</label>
+                    <input type="number" id="signalRestaurantId" value="1">
+                </div>
+                <div class="input-group">
+                    <label>Restrictions Met (comma-separated):</label>
+                    <input type="text" id="restrictionsMet" placeholder="gluten_free,dairy_free">
+                </div>
+                <div class="input-group">
+                    <label>Dish Name (optional):</label>
+                    <input type="text" id="dishName" placeholder="Grilled Salmon">
+                </div>
+                <div class="input-group">
+                    <label>Confidence (1-5):</label>
+                    <input type="number" id="confidence" value="5" min="1" max="5">
+                </div>
+                <button onclick="shareSafetySignal()">🛡️ Share Signal</button>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+                <button onclick="getTrustScores()">📊 Get Trust Scores</button>
+
+                <div id="signalsResult" class="result hidden"></div>
+            </div>
+
+            <!-- Discovery -->
+            <div class="card">
+                <h2>🔍 Discovery</h2>
+
+                <button onclick="discoverPeople()">🔍 Discover Helpful People</button>
+
+                <div id="discoveryResult" class="result hidden"></div>
+            </div>
+
+            <!-- Admin -->
+            <div class="card">
+                <h2>⚙️ Admin</h2>
+
+                <button onclick="calculateTrustScores()">🔄 Calculate Trust Scores</button>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+                <button onclick="listReports()">📋 List Abuse Reports</button>
+
+                <div id="adminResult" class="result hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        let authToken = '';
+
+        // Load token from localStorage
+        window.onload = () => {
+            const saved = localStorage.getItem('mytable_jwt_token');
+            if (saved) {
+                document.getElementById('jwtToken').value = saved;
+                authToken = saved;
+                showSuccess('authStatus', 'Token loaded from storage');
+            }
+        };
+
+        function saveToken() {
+            authToken = document.getElementById('jwtToken').value.trim();
+            if (authToken) {
+                localStorage.setItem('mytable_jwt_token', authToken);
+                showSuccess('authStatus', '✅ Token saved!');
+            } else {
+                showError('authStatus', 'Please enter a token');
+            }
+        }
+
+        function generateTestToken() {
+            showError('authStatus', 'Run this on server: python3 generate_test_token.py');
+        }
+
+        async function apiRequest(endpoint, options = {}) {
+            if (!authToken) {
+                alert('Please save your JWT token first!');
+                return null;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                        ...options.headers,
+                    },
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP ${response.status}`);
+                }
+
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Table Connections
+        async function sendInvitation() {
+            const email = document.getElementById('inviteEmail').value;
+            const reason = document.getElementById('inviteReason').value;
+
+            try {
+                const result = await apiRequest('/api/table/invite', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        invitee_email: email,
+                        invited_reason: reason,
+                    }),
+                });
+                showResult('connectionsResult', result, 'success');
+            } catch (error) {
+                showResult('connectionsResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function getConnections() {
+            try {
+                const result = await apiRequest('/api/table/connections');
+
+                let html = `<h3>My Table (${result.connections.length}/10)</h3>`;
+                result.connections.forEach(conn => {
+                    html += `
+                        <div class="connection-item">
+                            <h4>${conn.display_name || conn.name} <span class="badge">${conn.help_count} helps</span></h4>
+                            <p>${conn.bio || 'No bio'}</p>
+                            <p><small>Invited: ${conn.invited_reason}</small></p>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('connectionsResult').innerHTML = html;
+                document.getElementById('connectionsResult').classList.remove('hidden');
+            } catch (error) {
+                showResult('connectionsResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Questions
+        async function askQuestion() {
+            const restaurantId = parseInt(document.getElementById('restaurantId').value);
+            const templateId = document.getElementById('templateId').value;
+            const dietaryRestriction = document.getElementById('dietaryRestriction').value;
+
+            try {
+                const result = await apiRequest('/api/table/questions', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        restaurant_id: restaurantId,
+                        template_id: templateId,
+                        dietary_restriction: dietaryRestriction || null,
+                    }),
+                });
+                showResult('questionsResult', result, 'success');
+            } catch (error) {
+                showResult('questionsResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function listQuestions() {
+            try {
+                const result = await apiRequest('/api/table/questions');
+
+                let html = `<h3>Questions (${result.questions.length})</h3>`;
+                result.questions.forEach(q => {
+                    html += `
+                        <div class="question-item">
+                            <h4>Question #${q.question_id} - ${q.template_id}</h4>
+                            <p>Restaurant: ${q.restaurant_id} | Status: ${q.status}</p>
+                            <p>${q.answer_count} answers</p>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('questionsResult').innerHTML = html;
+                document.getElementById('questionsResult').classList.remove('hidden');
+            } catch (error) {
+                showResult('questionsResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Answers
+        async function submitAnswer() {
+            const questionId = parseInt(document.getElementById('questionId').value);
+            const answerText = document.getElementById('answerText').value;
+            const whatOrdered = document.getElementById('whatOrdered').value;
+
+            try {
+                const result = await apiRequest(`/api/table/questions/${questionId}/answers`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        answer_text: answerText,
+                        what_ordered: whatOrdered || null,
+                    }),
+                });
+                showResult('answersResult', result, 'success');
+            } catch (error) {
+                showResult('answersResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Safety Signals
+        async function shareSafetySignal() {
+            const restaurantId = parseInt(document.getElementById('signalRestaurantId').value);
+            const restrictions = document.getElementById('restrictionsMet').value.split(',').map(r => r.trim());
+            const dishName = document.getElementById('dishName').value;
+            const confidence = parseInt(document.getElementById('confidence').value);
+
+            try {
+                const result = await apiRequest('/api/table/signals', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        restaurant_id: restaurantId,
+                        restrictions_met: JSON.stringify(restrictions),
+                        dish_name: dishName || null,
+                        confidence: confidence,
+                    }),
+                });
+                showResult('signalsResult', result, 'success');
+            } catch (error) {
+                showResult('signalsResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function getTrustScores() {
+            const restaurantId = parseInt(document.getElementById('signalRestaurantId').value);
+
+            try {
+                const result = await apiRequest(`/api/table/restaurants/${restaurantId}/trust-scores`);
+
+                let html = `<h3>Trust Scores</h3>`;
+                result.trust_scores.forEach(score => {
+                    const percent = (score.trust_score * 100).toFixed(0);
+                    html += `
+                        <div class="trust-score">
+                            <span style="min-width: 120px;">${score.restriction_type}:</span>
+                            <div class="trust-bar">
+                                <div class="trust-bar-fill" style="width: ${percent}%"></div>
+                            </div>
+                            <span>${percent}%</span>
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-left: 120px; margin-bottom: 10px;">
+                            ${score.signal_count} signals • ${score.confidence_state}
+                        </p>
+                    `;
+                });
+
+                document.getElementById('signalsResult').innerHTML = html;
+                document.getElementById('signalsResult').classList.remove('hidden');
+            } catch (error) {
+                showResult('signalsResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Discovery
+        async function discoverPeople() {
+            try {
+                const result = await apiRequest('/api/table/discovery');
+                showResult('discoveryResult', result, 'success');
+            } catch (error) {
+                showResult('discoveryResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Admin
+        async function calculateTrustScores() {
+            try {
+                const result = await apiRequest('/api/admin/calculate-trust-scores', {
+                    method: 'POST',
+                });
+                showResult('adminResult', result, 'success');
+            } catch (error) {
+                showResult('adminResult', { error: error.message }, 'error');
+            }
+        }
+
+        async function listReports() {
+            try {
+                const result = await apiRequest('/api/table/reports');
+                showResult('adminResult', result, 'success');
+            } catch (error) {
+                showResult('adminResult', { error: error.message }, 'error');
+            }
+        }
+
+        // Utility functions
+        function showResult(elementId, data, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            element.className = 'result ' + (type || '');
+            element.classList.remove('hidden');
+        }
+
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="success">${message}</div>`;
+        }
+
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="error">${message}</div>`;
+        }
+    </script>
+</body>
+</html>

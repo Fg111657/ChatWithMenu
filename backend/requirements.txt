@@ -1,0 +1,15 @@
+sqlalchemy
+flask
+flask_sqlalchemy
+flask-restx
+werkzeug>=2.3.7
+marshmallow
+marshmallow-sqlalchemy
+openai
+tiktoken
+structlog
+cachetools
+IPython
+retrying
+flask-cors
+psycopg2-binary

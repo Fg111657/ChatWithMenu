@@ -1,0 +1,51 @@
+{
+  "text_search": {
+    "business_status": "OPERATIONAL",
+    "formatted_address": "180 Columbus Ave, New York, NY 10023, United States",
+    "geometry": {
+      "location": {
+        "lat": 40.775067,
+        "lng": -73.98087199999999
+      },
+      "viewport": {
+        "northeast": {
+          "lat": 40.77636477989272,
+          "lng": -73.97938192010727
+        },
+        "southwest": {
+          "lat": 40.77366512010727,
+          "lng": -73.98208157989271
+        }
+      }
+    },
+    "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/restaurant-71.png",
+    "icon_background_color": "#FF9E67",
+    "icon_mask_base_uri": "https://maps.gstatic.com/mapfiles/place_api/icons/v2/restaurant_pinlet",
+    "name": "Il Violino",
+    "opening_hours": {
+      "open_now": false
+    },
+    "photos": [
+      {
+        "height": 2249,
+        "html_attributions": [
+          "<a href=\"https://maps.google.com/maps/contrib/109323038388700452514\">Il Violino</a>"
+        ],
+        "photo_reference": "AcnlKN3jezTeBuwD6917b2qF_AQRs2UXrU5gjRnL_BR4ZSoaP4xUxutZ27ZOrLwug7N8HNQgGPM415TsTv0DOoe12trPWV9uQzNSTVqVdHMZa8J4zDzEuBTaMemV3626DdHg4p8RGdrIBgN_3VlADjSj2McA9IOqfzySY8AA7mfa86bDXOH3fCP8K-N-714EqtnAtuJm4lxTj7foDgF0YRD3Ik9U5MMybv5aR5ugcfTk2wj0Wc0rehB2HBWgMbkCOnRm68d2StD4XInxGwue1THQOr9LWt8coLhRqUQmjNz12ghTGKMUeHI",
+        "width": 3996
+      }
+    ],
+    "place_id": "ChIJZZbGz4pYwokRlYZjTMMv5QU",
+    "price_level": 2,
+    "rating": 4.3,
+    "reference": "ChIJZZbGz4pYwokRlYZjTMMv5QU",
+    "types": [
+      "restaurant",
+      "food",
+      "point_of_interest",
+      "establishment"
+    ],
+    "user_ratings_total": 798
+  },
+  "place_details": {}
+}

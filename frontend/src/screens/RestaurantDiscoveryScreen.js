@@ -1,0 +1,520 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { BASE_URL } from '../services/backendData';
+import { useNavigate } from 'react-router-dom';
+import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+import {
+  Box,
+  Container,
+  Paper,
+  Typography,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Slider,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Stack,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  CircularProgress,
+  Alert
+} from '@mui/material';
+import TuneIcon from '@mui/icons-material/Tune';
+import CloseIcon from '@mui/icons-material/Close';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
+import dataService from '../services/dataService';
+
+const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY;
+
+// NYC center coordinates
+const DEFAULT_CENTER = {
+  lat: 40.7589,
+  lng: -73.9851
+};
+
+const MAP_CONTAINER_STYLE = {
+  width: '100%',
+  height: '100%'
+};
+
+const MAP_OPTIONS = {
+  disableDefaultUI: false,
+  zoomControl: true,
+  mapTypeControl: false,
+  streetViewControl: false,
+  fullscreenControl: true
+};
+
+function RestaurantDiscoveryScreen() {
+  const navigate = useNavigate();
+  const [map, setMap] = useState(null);
+  const [center, setCenter] = useState(DEFAULT_CENTER);
+  const [restaurants, setRestaurants] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    radius: 5,
+    cuisine: '',
+    priceMax: 4,
+    amenities: ''
+  });
+
+  // Available filter options
+  const cuisineTypes = [
+    'Italian', 'Chinese', 'Japanese', 'Mexican', 'French', 'American',
+    'Thai', 'Greek', 'Indian', 'Mediterranean', 'Korean', 'Vietnamese',
+    'Steakhouse', 'Seafood', 'Pizza', 'Vegan', 'Deli', 'Bakery'
+  ];
+
+  const amenityOptions = [
+    'outdoor_seating', 'takeout', 'delivery', 'reservations',
+    'bar', 'parking', 'wifi', 'wheelchair_accessible', 'vegan_options'
+  ];
+
+  // Load restaurants on mount and when filters/center change
+  useEffect(() => {
+    fetchRestaurants();
+  }, [center, filters]);
+
+  const fetchRestaurants = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams({
+        lat: center.lat.toString(),
+        lng: center.lng.toString(),
+        radius: filters.radius.toString(),
+        limit: '50'
+      });
+
+      if (filters.cuisine) {
+        params.append('cuisine', filters.cuisine);
+      }
+
+      if (filters.priceMax < 4) {
+        params.append('price_max', filters.priceMax.toString());
+      }
+
+      if (filters.amenities) {
+        params.append('amenities', filters.amenities);
+      }
+
+      const response = await fetch(`${BASE_URL}/listRestaurants?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setRestaurants(data.restaurants || []);
+    } catch (err) {
+      console.error('Failed to fetch restaurants:', err);
+      setError('Failed to load restaurants. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUseMyLocation = () => {
+    if (navigator.geolocation) {
+      setLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newCenter = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setCenter(newCenter);
+          if (map) {
+            map.panTo(newCenter);
+          }
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          setError('Unable to get your location. Using NYC default.');
+          setLoading(false);
+        }
+      );
+    } else {
+      setError('Geolocation is not supported by your browser.');
+    }
+  };
+
+  const handleMarkerClick = (restaurant) => {
+    setSelectedRestaurant(restaurant);
+  };
+
+  const handleViewMenu = (restaurantId, restaurantName) => {
+    navigate('/chat', {
+      state: {
+        restaurantId: restaurantId,
+        restaurantName: restaurantName
+      }
+    });
+  };
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      radius: 5,
+      cuisine: '',
+      priceMax: 4,
+      amenities: ''
+    });
+  };
+
+  const onMapLoad = useCallback((map) => {
+    setMap(map);
+  }, []);
+
+  const getPriceDisplay = (priceRange) => {
+    return '$'.repeat(priceRange || 1);
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      {/* Header */}
+      <Paper
+        elevation={2}
+        sx={{
+          p: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 10
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <RestaurantIcon color="primary" fontSize="large" />
+          <Box>
+            <Typography variant="h5" fontWeight={600}>
+              Discover Restaurants
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {restaurants.length} restaurant{restaurants.length !== 1 ? 's' : ''} found
+            </Typography>
+          </Box>
+        </Box>
+
+        <Stack direction="row" spacing={1}>
+          <IconButton
+            color="primary"
+            onClick={handleUseMyLocation}
+            title="Use my location"
+          >
+            <MyLocationIcon />
+          </IconButton>
+          <IconButton
+            color="primary"
+            onClick={() => setFilterDrawerOpen(true)}
+            title="Filters"
+          >
+            <TuneIcon />
+          </IconButton>
+        </Stack>
+      </Paper>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert
+          severity="error"
+          onClose={() => setError(null)}
+          sx={{ m: 2 }}
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* Map Container */}
+      <Box sx={{ flex: 1, position: 'relative' }}>
+        {loading && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 1000
+            }}
+          >
+            <CircularProgress size={60} />
+          </Box>
+        )}
+
+        <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+          <GoogleMap
+            mapContainerStyle={MAP_CONTAINER_STYLE}
+            center={center}
+            zoom={13}
+            options={MAP_OPTIONS}
+            onLoad={onMapLoad}
+          >
+            {/* User location marker */}
+            <Marker
+              position={center}
+              icon={{
+                path: window.google?.maps?.SymbolPath?.CIRCLE || 0,
+                scale: 8,
+                fillColor: '#4285F4',
+                fillOpacity: 1,
+                strokeColor: '#FFFFFF',
+                strokeWeight: 2
+              }}
+            />
+
+            {/* Restaurant markers */}
+            {restaurants.map((restaurant) => (
+              <Marker
+                key={restaurant.id}
+                position={{
+                  lat: restaurant.latitude,
+                  lng: restaurant.longitude
+                }}
+                onClick={() => handleMarkerClick(restaurant)}
+                icon={{
+                  url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                }}
+              />
+            ))}
+
+            {/* Info Window for selected restaurant */}
+            {selectedRestaurant && (
+              <InfoWindow
+                position={{
+                  lat: selectedRestaurant.latitude,
+                  lng: selectedRestaurant.longitude
+                }}
+                onCloseClick={() => setSelectedRestaurant(null)}
+              >
+                <Card sx={{ minWidth: 250 }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom>
+                      {selectedRestaurant.name}
+                    </Typography>
+
+                    <Stack spacing={1} sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          label={selectedRestaurant.cuisine_type}
+                          size="small"
+                          color="primary"
+                        />
+                        <Chip
+                          label={getPriceDisplay(selectedRestaurant.price_range)}
+                          size="small"
+                        />
+                      </Box>
+
+                      {selectedRestaurant.rating && (
+                        <Typography variant="body2">
+                          ⭐ {selectedRestaurant.rating.toFixed(1)} ({selectedRestaurant.review_count} reviews)
+                        </Typography>
+                      )}
+
+                      <Typography variant="body2" color="text.secondary">
+                        📍 {selectedRestaurant.distance_km.toFixed(2)} km away
+                      </Typography>
+
+                      {selectedRestaurant.amenities && selectedRestaurant.amenities.length > 0 && (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                          {selectedRestaurant.amenities.slice(0, 3).map((amenity, idx) => (
+                            <Chip
+                              key={idx}
+                              label={amenity.replace(/_/g, ' ')}
+                              size="small"
+                              variant="outlined"
+                            />
+                          ))}
+                        </Box>
+                      )}
+                    </Stack>
+
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={() => handleViewMenu(selectedRestaurant.id, selectedRestaurant.name)}
+                    >
+                      View Menu & Chat
+                    </Button>
+                  </CardContent>
+                </Card>
+              </InfoWindow>
+            )}
+          </GoogleMap>
+        </LoadScript>
+      </Box>
+
+      {/* Filter Drawer */}
+      <Drawer
+        anchor="right"
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        PaperProps={{
+          sx: { width: { xs: '100%', sm: 400 } }
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TuneIcon color="primary" />
+            <Typography variant="h6">Filters</Typography>
+          </Box>
+          <IconButton onClick={() => setFilterDrawerOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+          <Stack spacing={3}>
+            {/* Radius Slider */}
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Search Radius: {filters.radius} km
+              </Typography>
+              <Slider
+                value={filters.radius}
+                onChange={(e, val) => handleFilterChange('radius', val)}
+                min={1}
+                max={20}
+                step={1}
+                marks={[
+                  { value: 1, label: '1km' },
+                  { value: 10, label: '10km' },
+                  { value: 20, label: '20km' }
+                ]}
+                valueLabelDisplay="auto"
+              />
+            </Box>
+
+            {/* Cuisine Filter */}
+            <FormControl fullWidth>
+              <InputLabel>Cuisine Type</InputLabel>
+              <Select
+                value={filters.cuisine}
+                label="Cuisine Type"
+                onChange={(e) => handleFilterChange('cuisine', e.target.value)}
+              >
+                <MenuItem value="">All Cuisines</MenuItem>
+                {cuisineTypes.map(cuisine => (
+                  <MenuItem key={cuisine} value={cuisine}>{cuisine}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Price Range */}
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Max Price: {getPriceDisplay(filters.priceMax)}
+              </Typography>
+              <Slider
+                value={filters.priceMax}
+                onChange={(e, val) => handleFilterChange('priceMax', val)}
+                min={1}
+                max={4}
+                step={1}
+                marks={[
+                  { value: 1, label: '$' },
+                  { value: 2, label: '$$' },
+                  { value: 3, label: '$$$' },
+                  { value: 4, label: '$$$$' }
+                ]}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(val) => getPriceDisplay(val)}
+              />
+            </Box>
+
+            {/* Amenities Filter */}
+            <FormControl fullWidth>
+              <InputLabel>Required Amenity</InputLabel>
+              <Select
+                value={filters.amenities}
+                label="Required Amenity"
+                onChange={(e) => handleFilterChange('amenities', e.target.value)}
+              >
+                <MenuItem value="">No Requirement</MenuItem>
+                {amenityOptions.map(amenity => (
+                  <MenuItem key={amenity} value={amenity}>
+                    {amenity.replace(/_/g, ' ')}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Active Filters Display */}
+            {(filters.cuisine || filters.priceMax < 4 || filters.amenities) && (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Active Filters:
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {filters.cuisine && (
+                    <Chip
+                      label={`Cuisine: ${filters.cuisine}`}
+                      onDelete={() => handleFilterChange('cuisine', '')}
+                      size="small"
+                    />
+                  )}
+                  {filters.priceMax < 4 && (
+                    <Chip
+                      label={`Max: ${getPriceDisplay(filters.priceMax)}`}
+                      onDelete={() => handleFilterChange('priceMax', 4)}
+                      size="small"
+                    />
+                  )}
+                  {filters.amenities && (
+                    <Chip
+                      label={filters.amenities.replace(/_/g, ' ')}
+                      onDelete={() => handleFilterChange('amenities', '')}
+                      size="small"
+                    />
+                  )}
+                </Stack>
+              </Box>
+            )}
+          </Stack>
+        </Box>
+
+        {/* Drawer Actions */}
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              onClick={handleResetFilters}
+              fullWidth
+            >
+              Reset
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => setFilterDrawerOpen(false)}
+              fullWidth
+            >
+              Apply
+            </Button>
+          </Stack>
+        </Box>
+      </Drawer>
+    </Box>
+  );
+}
+
+export default RestaurantDiscoveryScreen;
