@@ -28,10 +28,10 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import dataService from '../services/dataService';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const EditProfile = () => {
+const EditProfile = ({ userId: propUserId, onBack }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const userId = location.state?.userId;
+  const userId = propUserId || location.state?.userId;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -126,9 +126,12 @@ const EditProfile = () => {
         setSuccess('Profile updated successfully! Redirecting...');
       }
 
-      // Wait 1.5 seconds to show success message, then redirect
       setTimeout(() => {
-        window.location.href = '/dashboard'; // Force reload to get new account_type
+        if (onBack) {
+          onBack();
+        } else {
+          window.location.href = '/dashboard';
+        }
       }, 1500);
     } catch (error) {
       console.error('Save error:', error);
@@ -149,7 +152,7 @@ const EditProfile = () => {
   }
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
+    <Container maxWidth="sm" sx={{ py: { xs: 1, sm: 2 } }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
@@ -309,7 +312,10 @@ const EditProfile = () => {
               <Button
                 variant="outlined"
                 startIcon={<ArrowBackIcon />}
-                onClick={() => navigate('/dashboard')}
+                onClick={() => {
+                  if (onBack) onBack();
+                  else navigate('/dashboard');
+                }}
                 sx={{ flex: 1 }}
               >
                 Cancel

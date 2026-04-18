@@ -19,7 +19,6 @@ import {
   ListItemText,
   CircularProgress,
   Alert,
-  Divider,
   useMediaQuery,
   useTheme,
   IconButton,
@@ -41,11 +40,12 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LocalDiningIcon from '@mui/icons-material/LocalDining';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import WarningIcon from '@mui/icons-material/Warning';
 import DirectionsIcon from '@mui/icons-material/Directions';
 import LanguageIcon from '@mui/icons-material/Language';
 import dataService from '../services/dataService';
 import TrustScoreBadge from './TrustScoreBadge';
+
+const COMMUNITY_MENU_MARKER = '[facebook-community-import]';
 
 // Parse JSON strings safely
 const parseJson = (jsonString) => {
@@ -65,12 +65,194 @@ const formatDietaryTag = (tag) => {
     .join(' ');
 };
 
+const getPriceDisplay = (priceRange) => {
+  if (!priceRange || priceRange < 1) return null;
+  return '$'.repeat(Math.min(priceRange, 4));
+};
+
+const uniqueKeepOrder = (values) => {
+  const seen = new Set();
+  const output = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    output.push(value);
+  }
+  return output;
+};
+
+const isCommunityMenu = (menu) => {
+  const rawInput = menu?.menu_data?.raw_input;
+  return typeof rawInput === 'string' && rawInput.startsWith(COMMUNITY_MENU_MARKER);
+};
+
+const getOfficialMenus = (details) => (details?.menus || []).filter((menu) => !isCommunityMenu(menu));
+
+const getRecommendationPayloads = (details) =>
+  (details?.documents || [])
+    .filter((doc) => doc?.document_type === 'CommunityRecommendations')
+    .map((doc) => parseJson(doc?.document_data))
+    .filter((payload) => payload && (payload.recommendation_summary || payload.recommended_items || payload.notes));
+
+const getRecommendationItems = (payloads) =>
+  uniqueKeepOrder(
+    payloads.flatMap((payload) => (Array.isArray(payload?.recommended_items) ? payload.recommended_items : []))
+  );
+
+const formatCurrency = (value) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
+  return `$${value.toFixed(2)}`;
+};
+
+const buildDisplayRestaurant = (detailsRestaurant, selectedRestaurant) => ({
+  ...(selectedRestaurant || {}),
+  ...(detailsRestaurant || {}),
+});
+
+const getDisplayAddress = (restaurant, googleData) => {
+  return restaurant?.address || googleData?.address || null;
+};
+
+const getDisplayCuisine = (restaurant) => {
+  return restaurant?.cuisine_type || null;
+};
+
+const getDisplayPriceTier = (restaurant) => {
+  return getPriceDisplay(restaurant?.price_range) || null;
+};
+
+const getDisplayRatingSummary = (restaurant, googleData) => {
+  const rating = typeof googleData?.rating === 'number'
+    ? googleData.rating
+    : (typeof restaurant?.display_rating === 'number' ? restaurant.display_rating : restaurant?.google_rating);
+  const reviewCount = Number.isFinite(Number(googleData?.user_ratings_total))
+    ? Number(googleData.user_ratings_total)
+    : Number.isFinite(Number(restaurant?.display_review_count))
+      ? Number(restaurant.display_review_count)
+      : Number(restaurant?.google_user_ratings_total || 0);
+
+  if (!rating || rating <= 0) {
+    return null;
+  }
+
+  return {
+    rating: Number(rating).toFixed(1),
+    reviewCount,
+  };
+};
+
+const getMenuTitle = (menu, index) => {
+  const sections = Array.isArray(menu?.menu_data?.menus) ? menu.menu_data.menus : [];
+  const names = sections
+    .map((section) => String(section?.name || '').trim())
+    .filter((name) => name && name.toLowerCase() !== 'menu');
+
+  if (names.length === 1) {
+    return names[0];
+  }
+  if (names.length > 1) {
+    return names.slice(0, 2).join(' / ');
+  }
+  return `Menu ${index + 1}`;
+};
+
+const getMenuSpecialNote = (menu) => {
+  const rawInput = String(menu?.menu_data?.raw_input || '');
+  const perPoundMatch = rawInput.match(/priced at\s+\$?(\d+(?:\.\d{2})?)\s+per pound/i);
+  if (perPoundMatch) {
+    return `Priced by weight at $${Number(perPoundMatch[1]).toFixed(2)} per pound.`;
+  }
+  if (/priced by weight/i.test(rawInput)) {
+    return 'Priced by weight.';
+  }
+  return null;
+};
+
+const getCleanItemDescription = (item) => {
+  let description = String(item?.description || '').trim();
+  if (!description) return null;
+
+  const hasVariantGroups = Array.isArray(item?.modifier_groups) && item.modifier_groups.length > 0;
+  if (hasVariantGroups) {
+    description = description.replace(/pricing details:\s*.*$/i, '').trim();
+    description = description.replace(
+      /\b(?:small|medium|large|personal|regular|family)[^$]*\$\d+(?:\.\d{2})?(?:[^$]*(?=(?:small|medium|large|personal|regular|family)\b|$))/gi,
+      ''
+    ).trim();
+    description = description.replace(/\s{2,}/g, ' ').trim();
+  }
+
+  return description || null;
+};
+
+const getPrimaryItemPriceLabel = (item) => {
+  if (!item) return null;
+  const hasVariantGroups = Array.isArray(item.modifier_groups) && item.modifier_groups.some(
+    (group) => Array.isArray(group?.options) && group.options.length > 1
+  );
+
+  if (item.price_type === 'MP' || item.price === null || item.price === undefined) {
+    return hasVariantGroups ? 'See options' : null;
+  }
+
+  const baseLabel = formatCurrency(item.price);
+  if (!baseLabel) return null;
+  return hasVariantGroups ? `from ${baseLabel}` : baseLabel;
+};
+
+const getModifierGroupDisplay = (item, group) => {
+  if (!group || !Array.isArray(group.options) || group.options.length === 0) return null;
+  const basePrice = typeof item?.price === 'number' ? item.price : null;
+
+  const optionsText = group.options
+    .map((option) => {
+      if (!option?.name) return null;
+      const delta = typeof option.price_delta === 'number' ? option.price_delta : 0;
+      const absolutePrice = typeof basePrice === 'number' ? basePrice + delta : null;
+      const priceText = absolutePrice !== null
+        ? formatCurrency(absolutePrice)
+        : delta > 0
+          ? `+$${delta.toFixed(2)}`
+          : null;
+      return priceText ? `${option.name} (${priceText})` : option.name;
+    })
+    .filter(Boolean)
+    .join(', ');
+
+  return optionsText ? `${group.name}: ${optionsText}` : null;
+};
+
+const getSimpleModifierDisplay = (modifiers) => {
+  if (!Array.isArray(modifiers) || modifiers.length === 0) return null;
+  const text = modifiers
+    .map((modifier) => {
+      if (!modifier?.name) return null;
+      if (typeof modifier.price === 'number') {
+        return `${modifier.name} (+$${modifier.price.toFixed(2)})`;
+      }
+      return modifier.name;
+    })
+    .filter(Boolean)
+    .join(', ');
+  return text ? `Add-ons: ${text}` : null;
+};
+
 // Compute menu confidence status for UX
 const computeMenuConfidence = (details) => {
-  const menus = details?.menus || [];
+  const menus = getOfficialMenus(details);
+  const recommendations = getRecommendationPayloads(details);
 
   // No menus = not verified
   if (menus.length === 0) {
+    if (recommendations.length > 0) {
+      return {
+        status: 'recommendations-only',
+        label: 'Recommendations available, menu pending',
+        icon: '🟡',
+        color: 'warning',
+        description: 'Guest recommendations are available, but the official menu still needs to be scraped and reviewed.'
+      };
+    }
     return {
       status: 'not-verified',
       label: 'Menu not yet verified',
@@ -89,14 +271,16 @@ const computeMenuConfidence = (details) => {
     const md = menu?.menu_data;
 
     // Check if it's V2 structured format
-    if (md && typeof md === 'object' && md.version && Array.isArray(md.categories)) {
+    if (md && typeof md === 'object' && md.version && Array.isArray(md.menus)) {
       hasStructuredMenu = true;
 
-      for (const cat of md.categories) {
-        const items = Array.isArray(cat?.items) ? cat.items : [];
-        totalItems += items.length;
-        for (const item of items) {
-          if (item?.needs_review) needsReviewCount++;
+      for (const menuSection of md.menus) {
+        for (const cat of menuSection?.categories || []) {
+          const items = Array.isArray(cat?.items) ? cat.items : [];
+          totalItems += items.length;
+          for (const item of items) {
+            if (item?.needs_review) needsReviewCount++;
+          }
         }
       }
     }
@@ -160,7 +344,7 @@ function TabPanel({ children, value, index, ...other }) {
   );
 }
 
-const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) => {
+const RestaurantDetailsDialog = ({ open, onClose, restaurantId, selectedRestaurant, onStartChat }) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -169,7 +353,6 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
   const [error, setError] = useState(null);
   const [details, setDetails] = useState(null);
   const [googleData, setGoogleData] = useState(null);
-  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     console.log('[RestaurantDialog] open', open, 'id', restaurantId);
@@ -202,7 +385,6 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
   };
 
   const fetchGoogleData = async () => {
-    setGoogleLoading(true);
     try {
       // Call public cached endpoint (no auth, no Google API calls)
       const result = await dataService.getGoogleCachedData(restaurantId);
@@ -211,20 +393,28 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
     } catch (err) {
       console.error('Failed to load Google cached data:', err);
       // Non-critical - continue without Google data
-    } finally {
-      setGoogleLoading(false);
     }
   };
 
   const handleStartChat = () => {
-    if (onStartChat && details) {
-      onStartChat(details.restaurant);
+    if (onStartChat && (details?.restaurant || selectedRestaurant)) {
+      onStartChat(details?.restaurant || selectedRestaurant);
     }
   };
 
-  const dietaryTags = parseJson(details?.restaurant?.dietary_tags);
+  const dietaryTags = details?.restaurant?.dietary_display_tags?.length
+    ? details.restaurant.dietary_display_tags
+    : (parseJson(details?.restaurant?.dietary_tags) || []).map(formatDietaryTag);
   const hours = parseJson(details?.restaurant?.hours_json);
   const menuConfidence = details ? computeMenuConfidence(details) : null;
+  const officialMenus = getOfficialMenus(details);
+  const recommendationPayloads = getRecommendationPayloads(details);
+  const recommendationItems = getRecommendationItems(recommendationPayloads);
+  const displayRestaurant = buildDisplayRestaurant(details?.restaurant, selectedRestaurant);
+  const displayAddress = getDisplayAddress(displayRestaurant, googleData);
+  const displayCuisine = getDisplayCuisine(displayRestaurant);
+  const displayPriceTier = getDisplayPriceTier(displayRestaurant);
+  const displayRatingSummary = getDisplayRatingSummary(displayRestaurant, googleData);
 
   return (
     <Dialog
@@ -239,7 +429,7 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <RestaurantMenuIcon color="primary" />
           <Typography variant="h6" component="span">
-            {details?.restaurant?.name || 'Restaurant Details'}
+            {displayRestaurant?.name || 'Restaurant'}
           </Typography>
         </Box>
         <IconButton onClick={onClose} size="small">
@@ -255,6 +445,7 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
         >
           <Tab icon={<InfoIcon />} label="Overview" iconPosition="start" />
           <Tab icon={<RestaurantMenuIcon />} label="Menus" iconPosition="start" />
+          <Tab icon={<ReviewsIcon />} label="Recommendations" iconPosition="start" />
           <Tab icon={<ReviewsIcon />} label="Reviews" iconPosition="start" />
         </Tabs>
       </Box>
@@ -285,7 +476,7 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                       component="img"
                       height="200"
                       image={`https://chatwithmenu.com/api/restaurant/${restaurantId}/photo/0`}
-                      alt={details?.restaurant?.name}
+                      alt={displayRestaurant?.name}
                       sx={{ objectFit: 'cover' }}
                     />
                   ) : (
@@ -316,17 +507,19 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                     }}
                   >
                     <Typography variant="h5" fontWeight={700} gutterBottom>
-                      {details.restaurant?.name}
+                      {displayRestaurant?.name || 'Restaurant'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {details.restaurant?.cuisine_type && (
-                        <Chip label={details.restaurant.cuisine_type} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+                      {displayCuisine && (
+                        <Chip label={displayCuisine} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
                       )}
-                      <Chip label="$$" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
-                      {googleData?.rating && (
+                      {displayPriceTier && (
+                        <Chip label={displayPriceTier} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+                      )}
+                      {displayRatingSummary && (
                         <Chip
                           icon={<span style={{ color: 'gold' }}>⭐</span>}
-                          label={`${googleData.rating} (${googleData.user_ratings_total || 0})`}
+                          label={`${displayRatingSummary.rating} (${displayRatingSummary.reviewCount || 0})`}
                           size="small"
                           sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
                         />
@@ -374,14 +567,14 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                       </Button>
                     </Grid>
                   )}
-                  {(googleData?.address || details.restaurant?.address) && (
+                  {displayAddress && (
                     <Grid item xs={4}>
                       <Button
                         variant="outlined"
                         size="small"
                         startIcon={<DirectionsIcon />}
                         fullWidth
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(googleData?.address || details.restaurant.address)}`}
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayAddress)}`}
                         target="_blank"
                         sx={{ fontSize: '0.75rem' }}
                       >
@@ -498,10 +691,10 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                       </Box>
                       {dietaryTags && dietaryTags.length > 0 ? (
                         <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                          {dietaryTags.slice(0, 3).map((tag) => (
+                          {dietaryTags.slice(0, 5).map((tag) => (
                             <Chip
                               key={tag}
-                              label={formatDietaryTag(tag)}
+                              label={tag}
                               size="small"
                               variant="outlined"
                               color="success"
@@ -526,9 +719,9 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                         </Typography>
                       </Box>
                       <Stack spacing={1}>
-                        {(googleData?.address || details.restaurant?.address) && (
+                        {displayAddress && (
                           <Typography variant="body2">
-                            📍 {googleData?.address || details.restaurant.address}
+                            📍 {displayAddress}
                           </Typography>
                         )}
                         {(googleData?.phone || details.restaurant?.phone) && (
@@ -540,6 +733,32 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                     </Paper>
                   </Grid>
                 </Grid>
+
+                {recommendationPayloads.length > 0 && (
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                        Recommendations
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: recommendationItems.length ? 1.5 : 0 }}>
+                        {recommendationPayloads[0]?.recommendation_summary}
+                      </Typography>
+                      {recommendationItems.length > 0 && (
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                          {recommendationItems.slice(0, 8).map((item) => (
+                            <Chip
+                              key={item}
+                              label={item}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))}
+                        </Stack>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* WHAT YOU CAN ASK */}
                 <Card variant="outlined" sx={{ bgcolor: 'primary.50', borderColor: 'primary.200' }}>
@@ -577,16 +796,21 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
 
             {/* Menus Tab */}
             <TabPanel value={tabValue} index={1}>
-              {details.menus && details.menus.length > 0 ? (
+              {officialMenus && officialMenus.length > 0 ? (
                 <Stack spacing={2}>
-                  {details.menus.map((menu, index) => (
+                  {officialMenus.map((menu, index) => (
                     <Accordion key={menu.id} defaultExpanded={index === 0}>
                       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                         <Typography variant="h6">
-                          Menu {details.menus.length > 1 ? `${index + 1}` : ''}
+                          {getMenuTitle(menu, index)}
                         </Typography>
                       </AccordionSummary>
                       <AccordionDetails>
+                        {getMenuSpecialNote(menu) && (
+                          <Alert severity="info" sx={{ mb: 2 }}>
+                            {getMenuSpecialNote(menu)}
+                          </Alert>
+                        )}
                         {menu.menu_data && menu.menu_data.menus && menu.menu_data.menus.length > 0 ? (
                           menu.menu_data.menus.map((section) => (
                             <Box key={section.id} sx={{ mb: 3 }}>
@@ -601,19 +825,48 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                                   <List dense>
                                     {category.items && category.items.map((item) => (
                                       <ListItem key={item.id} sx={{ px: 0 }}>
+                                        {(() => {
+                                          const primaryPriceLabel = getPrimaryItemPriceLabel(item);
+                                          const modifierGroupLines = (item.modifier_groups || [])
+                                            .map((group) => getModifierGroupDisplay(item, group))
+                                            .filter(Boolean);
+                                          const simpleModifierLine = getSimpleModifierDisplay(item.modifiers);
+                                          const secondaryParts = [
+                                            getCleanItemDescription(item),
+                                            ...modifierGroupLines,
+                                            simpleModifierLine,
+                                          ].filter(Boolean);
+
+                                          return (
                                         <ListItemText
                                           primary={
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                               <Typography variant="body1">{item.name}</Typography>
-                                              {item.price && (
+                                              {primaryPriceLabel && (
                                                 <Typography variant="body1" fontWeight={600}>
-                                                  ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
+                                                  {primaryPriceLabel}
                                                 </Typography>
                                               )}
                                             </Box>
                                           }
-                                          secondary={item.description}
+                                          secondary={
+                                            secondaryParts.length > 0 ? (
+                                              <Stack spacing={0.5} sx={{ mt: 0.25 }}>
+                                                {secondaryParts.map((part, partIndex) => (
+                                                  <Typography
+                                                    key={`${item.id}-detail-${partIndex}`}
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                  >
+                                                    {part}
+                                                  </Typography>
+                                                ))}
+                                              </Stack>
+                                            ) : null
+                                          }
                                         />
+                                          );
+                                        })()}
                                       </ListItem>
                                     ))}
                                   </List>
@@ -631,12 +884,82 @@ const RestaurantDetailsDialog = ({ open, onClose, restaurantId, onStartChat }) =
                   ))}
                 </Stack>
               ) : (
-                <Alert severity="info">No menus available for this restaurant.</Alert>
+                <Alert severity="info">
+                  No official menu has been added yet. Check the Recommendations tab for guest tips while menu scraping continues.
+                </Alert>
+              )}
+            </TabPanel>
+
+            {/* Recommendations Tab */}
+            <TabPanel value={tabValue} index={2}>
+              {recommendationPayloads.length > 0 ? (
+                <Stack spacing={2}>
+                  {recommendationPayloads.map((payload, index) => {
+                    const payloadItems = Array.isArray(payload?.recommended_items) ? payload.recommended_items : [];
+                    const evidence = Array.isArray(payload?.evidence)
+                      ? payload.evidence.filter((line) => line && !String(line).trim().endsWith('?')).slice(0, 4)
+                      : [];
+
+                    return (
+                      <Card key={`${payload.canonical_name || 'recommendation'}-${index}`} variant="outlined">
+                        <CardContent>
+                          {payload.recommendation_summary && (
+                            <Typography variant="body1" gutterBottom>
+                              {payload.recommendation_summary}
+                            </Typography>
+                          )}
+
+                          {payloadItems.length > 0 && (
+                            <Box sx={{ mb: 2 }}>
+                              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                                Suggested items
+                              </Typography>
+                              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                {payloadItems.map((item) => (
+                                  <Chip
+                                    key={item}
+                                    label={item}
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                  />
+                                ))}
+                              </Stack>
+                            </Box>
+                          )}
+
+                          {payload.notes && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: evidence.length ? 1.5 : 0 }}>
+                              {payload.notes}
+                            </Typography>
+                          )}
+
+                          {evidence.length > 0 && (
+                            <Box>
+                              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                                What diners mentioned
+                              </Typography>
+                              <List dense sx={{ py: 0 }}>
+                                {evidence.map((line, evidenceIndex) => (
+                                  <ListItem key={`${index}-${evidenceIndex}`} sx={{ px: 0, py: 0.25 }}>
+                                    <ListItemText primary={line} />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </Box>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </Stack>
+              ) : (
+                <Alert severity="info">No recommendation notes are available for this restaurant yet.</Alert>
               )}
             </TabPanel>
 
             {/* Reviews Tab */}
-            <TabPanel value={tabValue} index={2}>
+            <TabPanel value={tabValue} index={3}>
               {details.recent_reviews && details.recent_reviews.length > 0 ? (
                 <Stack spacing={2}>
                   {details.recent_reviews.map((review, index) => (

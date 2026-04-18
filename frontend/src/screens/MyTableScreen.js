@@ -288,7 +288,7 @@ const SendInviteDialog = ({ open, onClose, onSend }) => {
 };
 
 // Main My Table Screen Component
-const MyTableScreen = () => {
+const MyTableScreen = ({ onBack }) => {
   const navigate = useNavigate();
   const { userId, isInitialized } = useContext(UserContext);
   const [loading, setLoading] = useState(true);
@@ -393,12 +393,15 @@ const MyTableScreen = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 1, sm: 2 } }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => {
+            if (onBack) onBack();
+            else navigate('/dashboard');
+          }}
           sx={{ mb: 2 }}
         >
           Back to Dashboard

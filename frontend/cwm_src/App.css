@@ -1,0 +1,47 @@
+/* App-wide custom styles */
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Focus outline for accessibility */
+*:focus-visible {
+  outline: 2px solid #0077B6;
+  outline-offset: 2px;
+}
+
+/* Markdown content styling in chat */
+.MuiTypography-root p {
+  margin: 0;
+}
+
+.MuiTypography-root ul,
+.MuiTypography-root ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.MuiTypography-root li {
+  margin: 4px 0;
+}

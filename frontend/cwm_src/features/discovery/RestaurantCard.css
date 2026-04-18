@@ -1,0 +1,429 @@
+/**
+ * Restaurant card — visual primitive for the swipe deck.
+ * Rendered inside .cwm-discovery; tokens inherited from tokens.css.
+ */
+
+.cwm-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  height: 500px;
+  background: var(--cwm-white);
+  border-radius: var(--cwm-radius-card);
+  overflow: hidden;
+  box-shadow: var(--cwm-shadow-card);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  transition: box-shadow 220ms ease;
+}
+
+/* FIX #2 — tilt wrapper. Set on the card via .swipe-left / .swipe-right,
+   animated transform lives on this inner element so the scale ladder
+   on the slot wrapper is never overridden. */
+.cwm-tilt-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transform-origin: center center;
+  transition: transform 200ms ease;
+}
+.cwm-card.swipe-left .cwm-tilt-inner {
+  transform: rotate(-2deg) translateX(-6px);
+}
+.cwm-card.swipe-right .cwm-tilt-inner {
+  transform: rotate(2deg) translateX(6px);
+}
+/* Glow shadows + edge tint when a tilt zone is active */
+.cwm-card.swipe-left {
+  box-shadow:
+    0 0 0 6px rgba(220, 60, 60, 0.28),
+    0 18px 50px rgba(220, 60, 60, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  transition: box-shadow 220ms ease;
+}
+.cwm-card.swipe-right {
+  box-shadow:
+    0 0 0 6px rgba(46, 139, 87, 0.28),
+    0 18px 50px rgba(46, 139, 87, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  transition: box-shadow 220ms ease;
+}
+.cwm-card.swipe-left::before,
+.cwm-card.swipe-right::before {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: var(--cwm-radius-card);
+  z-index: 1;
+}
+.cwm-card.swipe-left::before  { background: linear-gradient(to right, rgba(220,60,60,0.08), transparent 40%); }
+.cwm-card.swipe-right::before { background: linear-gradient(to left,  rgba(46,139,87,0.08), transparent 40%); }
+
+/* Tilt badges — fade in when a direction is active */
+.cwm-tilt-badge {
+  position: absolute;
+  top: 14px;
+  padding: 6px 12px;
+  border-radius: var(--cwm-radius-pill);
+  font-weight: 800;
+  font-size: 13px;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  z-index: 6;
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+.cwm-tilt-badge.skip { left: 14px;  color: #C0392B; border: 1.5px solid #C0392B; }
+.cwm-tilt-badge.like { right: 14px; color: #16803C; border: 1.5px solid #16803C; }
+.cwm-card.swipe-left  .cwm-tilt-badge.skip { opacity: 0.95; }
+.cwm-card.swipe-right .cwm-tilt-badge.like { opacity: 0.95; }
+
+
+/* ── Photo block ── */
+.cwm-card-photo {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--cwm-blue-light) 0%, var(--cwm-blue) 100%);
+  overflow: hidden;
+}
+
+/* Fallback is always mounted behind the image so if the <img> fails
+   to load (expired Google ref, offline, rate-limited), the user sees
+   the brand mark instead of a blank gradient. */
+.cwm-card-photo-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+  z-index: 1;
+}
+
+/* The image sits ON TOP of the fallback. The <img> is persistent — its
+   src only changes once a new URL has been preloaded, so swaps are
+   instant with no opacity flash. We still crossfade on FIRST mount
+   (transition on opacity, triggered by React committing from null). */
+.cwm-card-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  z-index: 2;
+  opacity: 1;
+  transition: opacity 220ms ease-out;
+}
+
+
+/* Photo navigation dots — bottom of the image, only on the focused card */
+.cwm-photo-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--cwm-radius-pill);
+  background: rgba(10, 37, 64, 0.38);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.cwm-photo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: width 220ms ease, background 220ms ease;
+}
+.cwm-photo-dot:hover { background: rgba(255, 255, 255, 0.85); }
+.cwm-photo-dot.is-active {
+  background: var(--cwm-white);
+  width: 20px;
+  border-radius: 4px;
+}
+.cwm-photo-dot[data-failed="true"] { opacity: 0.35; }
+
+/* FIX #9 — saved heart: red, red fill when saved, drop-shadow halo */
+.cwm-heart {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--cwm-save);
+  cursor: pointer;
+  z-index: 3;
+  display: inline-flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 2px 6px var(--cwm-save-halo));
+  transition: transform 200ms cubic-bezier(0.5, 1.5, 0.5, 1), background 160ms ease;
+}
+.cwm-heart:hover { background: #fff; }
+.cwm-heart svg   { width: 20px; height: 20px; display: block; }
+.cwm-heart[data-saved="true"] { transform: scale(1.08); }
+
+
+/* ── Body ── */
+.cwm-card-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 4px;
+  position: relative;
+  z-index: 2;
+}
+
+.cwm-card-friends-slot {
+  min-height: 28px;
+  margin-top: -22px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.cwm-card-friends {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--cwm-radius-pill);
+  background: var(--cwm-white);
+  border: 1.5px solid var(--cwm-blue-deep);
+  color: var(--cwm-blue-deep);
+  font-size: 11.5px;
+  font-weight: 800;
+  box-shadow: var(--cwm-shadow-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.cwm-card-meta {
+  font-size: 10.5px;
+  color: var(--cwm-gray-500);
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* FIX #10 — chain-name link */
+.cwm-chain {
+  color: var(--cwm-blue-deep);
+  font-weight: 800;
+  text-decoration: none;
+  border-bottom: 1.5px dotted var(--cwm-blue-light);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cwm-chain:hover { border-bottom-style: solid; }
+
+.cwm-card-name {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--cwm-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 2px 0 0;
+  letter-spacing: -0.01em;
+}
+
+.cwm-card-locline {
+  font-size: 12.5px;
+  color: var(--cwm-gray-500);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cwm-card-locline svg { color: var(--cwm-blue-deep); flex-shrink: 0; }
+
+.cwm-card-rating {
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cwm-ink);
+}
+.cwm-card-rating-stars { color: #F5A623; letter-spacing: -1px; }
+.cwm-card-rating-count { color: var(--cwm-gray-500); }
+
+
+/* Hours line — today's range shown inline under the rating */
+.cwm-card-hours {
+  font-size: 12px;
+  color: var(--cwm-gray-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cwm-card-hours svg { color: var(--cwm-gray-500); flex-shrink: 0; }
+
+
+/* Open / Closed status pill — top-left of image */
+.cwm-status-pill {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--cwm-radius-pill);
+  font-family: var(--cwm-font);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.cwm-status-pill.is-open    { color: #0F7A3A; }
+.cwm-status-pill.is-closed  { color: #C0392B; }
+.cwm-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cwm-status-pill.is-open .cwm-status-dot {
+  box-shadow: 0 0 0 3px rgba(22, 128, 60, 0.18);
+  animation: cwm-pulse 2s ease-in-out infinite;
+}
+@keyframes cwm-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22,128,60,0.35); }
+  50%      { box-shadow: 0 0 0 5px rgba(22,128,60,0.0); }
+}
+
+
+/* FIX #7 — semantic tag pills (green / red / amber) */
+.cwm-card-pills {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin-top: 4px;
+  min-height: 24px;
+  overflow: hidden;
+}
+
+.cwm-mini {
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: var(--cwm-radius-pill);
+  font-weight: 800;
+  white-space: nowrap;
+  border: 1px solid;
+  flex-shrink: 0;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: transparent;
+  font-family: var(--cwm-font);
+  cursor: default;
+}
+.cwm-mini-green { background: #E6FBEF; color: #0F7A3A; border-color: #A6E8C2; }
+.cwm-mini-red   { background: #FFE9E9; color: #9F1818; border-color: #F4B6B6; }
+.cwm-mini-amber { background: #FFF3D6; color: #8A4A00; border-color: #F2D08A; }
+
+.cwm-mini[data-clickable="true"] {
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.cwm-mini[data-clickable="true"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.cwm-mini[data-active="true"] {
+  box-shadow: 0 0 0 2px currentColor inset;
+}
+
+.cwm-pill-more {
+  font-size: 10.5px;
+  color: var(--cwm-gray-500);
+  font-weight: 700;
+  align-self: center;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+/* ── CTAs — uniform sizing across every card ── */
+
+/* Primary: always full-width, always same height, always leads with logo mark */
+.cwm-card-cta {
+  width: 100%;
+  margin-top: auto;
+  margin-top: 10px;
+  height: 42px;
+  /* margin-top:auto on the container above pushes this block to the bottom */
+}
+.cwm-card-body > .cwm-card-cta {
+  margin-top: auto;
+}
+
+/* Secondary row: three equal-width action buttons */
+.cwm-card-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.cwm-card-action {
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--cwm-radius-pill);
+  background: var(--cwm-white);
+  color: var(--cwm-blue-deep);
+  border: 1.5px solid var(--cwm-blue-light);
+  font-family: var(--cwm-font);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+.cwm-card-action:hover:not(:disabled) {
+  border-color: var(--cwm-blue);
+  background: var(--cwm-blue-pale);
+}
+.cwm-card-action:disabled {
+  color: var(--cwm-gray-500);
+  border-color: var(--cwm-gray-200);
+  background: var(--cwm-gray-100);
+  cursor: not-allowed;
+}
+.cwm-card-action svg { flex-shrink: 0; }
+.cwm-card-action span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}

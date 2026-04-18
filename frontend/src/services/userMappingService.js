@@ -5,7 +5,7 @@
  * This is a bridge until the database is fully migrated to Supabase
  */
 
-import { supabase } from './supabaseClient';
+import { getSupabaseClientOrThrow } from './supabaseClient';
 import { apiFetchJSON } from './apiClient';
 
 const MAPPING_STORAGE_KEY = 'user_id_mapping';
@@ -19,7 +19,8 @@ const MAPPING_STORAGE_KEY = 'user_id_mapping';
 export async function getOrCreateDatabaseUser(inviteCode = '') {
   try {
     // Get current Supabase session
-    const { data: { session } } = await supabase.auth.getSession();
+    const client = getSupabaseClientOrThrow();
+    const { data: { session } } = await client.auth.getSession();
 
     if (!session?.user) {
       throw new Error('No active session');

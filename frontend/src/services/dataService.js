@@ -16,6 +16,89 @@ const handleResponse = async (response) => {
   return response.json();
 };
 
+const parseMenuDataObject = (menuData) => {
+  if (!menuData) return null;
+  if (typeof menuData === 'string') {
+    try {
+      return JSON.parse(menuData);
+    } catch (e) {
+      console.error('Failed to parse menu_data:', e);
+      return null;
+    }
+  }
+  if (typeof menuData === 'object') {
+    return menuData;
+  }
+  return null;
+};
+
+const countMenuItems = (menuData) => {
+  if (!menuData || !Array.isArray(menuData.menus)) return 0;
+
+  return menuData.menus.reduce((menuTotal, menu) => {
+    const categories = Array.isArray(menu?.categories) ? menu.categories : [];
+    return menuTotal + categories.reduce((categoryTotal, category) => {
+      const items = Array.isArray(category?.items) ? category.items : [];
+      return categoryTotal + items.length;
+    }, 0);
+  }, 0);
+};
+
+const countMenuCategories = (menuData) => {
+  if (!menuData || !Array.isArray(menuData.menus)) return 0;
+  return menuData.menus.reduce((total, menu) => {
+    const categories = Array.isArray(menu?.categories) ? menu.categories : [];
+    return total + categories.length;
+  }, 0);
+};
+
+const inferMenuSourceType = (menuData) => {
+  const rawInput = typeof menuData?.raw_input === 'string' ? menuData.raw_input : '';
+  if (rawInput.startsWith('[website-menu-import]')) return 'website';
+  if (rawInput.startsWith('[facebook-community-import]')) return 'community';
+  return 'other';
+};
+
+const scoreRestaurantMenuRecord = (normalizedMenu) => {
+  const sourceType = normalizedMenu.source_type;
+  const sourceWeight = sourceType === 'website'
+    ? 100000
+    : sourceType === 'community'
+      ? -100000
+      : 0;
+  const emptyPenalty = normalizedMenu.item_count === 0 ? -1000 : 0;
+  return sourceWeight + (normalizedMenu.item_count * 100) + normalizedMenu.category_count + emptyPenalty;
+};
+
+const normalizeRestaurantMenus = (menus = []) => {
+  const normalizedMenus = menus.map((menu) => {
+    const menuData = parseMenuDataObject(menu?.menu_data);
+    const itemCount = countMenuItems(menuData);
+    const categoryCount = countMenuCategories(menuData);
+    const sourceType = inferMenuSourceType(menuData);
+
+    return {
+      id: menu.id,
+      menu_data: menuData,
+      source_type: sourceType,
+      item_count: itemCount,
+      category_count: categoryCount,
+    };
+  });
+
+  normalizedMenus.sort((a, b) => {
+    const scoreDelta = scoreRestaurantMenuRecord(b) - scoreRestaurantMenuRecord(a);
+    if (scoreDelta !== 0) return scoreDelta;
+    if (b.item_count !== a.item_count) return b.item_count - a.item_count;
+    return (b.id || 0) - (a.id || 0);
+  });
+
+  return normalizedMenus.map((menu, index) => ({
+    ...menu,
+    is_preferred: index === 0,
+  }));
+};
+
 const loadUserData = async (userId) => {
   const response = await fetch(`${BASE_URL}/loadUser/${userId}`);
   const userData = await response.json();
@@ -136,51 +219,29 @@ const getRestaurantDetails = async (restaurantId) => {
   // Use the base restaurant endpoint
   const response = await fetch(`${BASE_URL}/restaurant/${restaurantId}`);
   const data = await response.json();
-
-  // Parse menu_data JSON strings into objects
-  const parsedMenus = (data.menus || []).map(menu => {
-    let menuData = null;
-    if (menu.menu_data) {
-      try {
-        menuData = typeof menu.menu_data === 'string'
-          ? JSON.parse(menu.menu_data)
-          : menu.menu_data;
-      } catch (e) {
-        console.error('Failed to parse menu_data:', e);
-        menuData = null;
-      }
-    }
-    return {
-      id: menu.id,
-      menu_data: menuData
-    };
-  });
+  const parsedMenus = normalizeRestaurantMenus(data.menus || []);
 
   // Transform backend response to match expected format
   return {
     restaurant: {
-      id: data.id,
-      name: data.name,
-      cuisine_type: null, // Not in backend database
-      address: null,
-      phone: null,
-      description: null,
-      hours: null,
-      dietary_tags: []
+      ...(data.restaurant || {}),
+      dietary_tags: data?.restaurant?.dietary_tags || '[]',
+      dietary_display_tags: data?.restaurant?.dietary_display_tags || [],
+      card_tags: data?.restaurant?.card_tags || [],
     },
     menus: parsedMenus,
+    documents: data.documents || [],
     stats: {
-      avg_rating: 0, // Not in backend database
-      review_count: 0
+      avg_rating: data?.restaurant?.rating_aggregate || 0,
+      review_count: data?.restaurant?.review_count || 0
     },
     recent_reviews: [] // Not in backend response
   };
 };
 
 const startChat = async (user_id, restaurant_id, force_new) => {
-
-  user_id = parseInt(user_id);
-  restaurant_id = parseInt(restaurant_id);
+  user_id = parseInt(user_id, 10);
+  restaurant_id = parseInt(restaurant_id, 10);
 
   const response = await fetch(`${BASE_URL}/startChat`, {
     method: 'POST',
@@ -189,7 +250,7 @@ const startChat = async (user_id, restaurant_id, force_new) => {
     },
     body: JSON.stringify({ user_id, restaurant_id, force_new }),
   });
-  return await response.json();
+  return await handleResponse(response);
 }
 
 const sendMessage = async (chat_id, message) => {
@@ -200,7 +261,7 @@ const sendMessage = async (chat_id, message) => {
     },
     body: JSON.stringify({ chat_id, message })
   });
-  return await response.json();
+  return await handleResponse(response);
 }
 
 const submitReview = async (user_id, restaurant_id, chat_id, item, rating, review_text) => {
@@ -211,7 +272,7 @@ const submitReview = async (user_id, restaurant_id, chat_id, item, rating, revie
     },
     body: JSON.stringify({ user_id, restaurant_id, chat_id, item, rating, review_text })
   });
-  return await response.json();
+  return await handleResponse(response);
 }
 
 const loadUserPreferences = async (user_id, restrictionType) => {
@@ -271,8 +332,7 @@ const genImageDish = async(restaurantId, dishName) => {
 
 const menuItemsFromChat = async(chatId) => {
   const response = await fetch(`${BASE_URL}/chat/${chatId}/menu_items`)
-  const data = await response.json();
-  return data;
+  return await handleResponse(response);
 }
 
 const createRestaurant = async(restaurantData) => {
@@ -303,7 +363,10 @@ const deleteRestaurant = async (userId, restaurantId) => {
 const getRestaurant = async (restaurantId) => {
   const response = await fetch(`${BASE_URL}/restaurant/${restaurantId}`);
   const data = await response.json();
-  return data;
+  return {
+    ...data,
+    menus: normalizeRestaurantMenus(data.menus || []),
+  };
 };
 
 // Update restaurant profile (name, address, description)

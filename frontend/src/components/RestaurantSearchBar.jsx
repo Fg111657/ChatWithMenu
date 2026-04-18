@@ -11,12 +11,14 @@ import {
   Paper,
   Stack,
   InputAdornment,
+  Typography,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import SortIcon from '@mui/icons-material/Sort';
+import { getTagCategoryLabel, getTagChipIcon, getTagChipSx, getTagTone } from '../utils/tagVisuals';
 
 // Cuisine types available for filtering
 const CUISINE_TYPES = [
@@ -34,15 +36,41 @@ const CUISINE_TYPES = [
   { value: 'Vietnamese', label: 'Vietnamese' },
 ];
 
-// Dietary tags for filtering
-const DIETARY_TAGS = [
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'vegan-friendly', label: 'Vegan-Friendly' },
-  { value: 'vegetarian-friendly', label: 'Vegetarian-Friendly' },
-  { value: 'gluten-free-options', label: 'Gluten-Free Options' },
-  { value: 'halal', label: 'Halal' },
-  { value: 'kosher', label: 'Kosher' },
-  { value: 'nut-free-options', label: 'Nut-Free Options' },
+const DEFAULT_DIETARY_TAG_LABELS = [
+  'Recommended',
+  'Nut-Free Recommended',
+  'Dairy-Free Recommended',
+  'Egg-Free Recommended',
+  'Gluten-Free Recommended',
+  'Sesame-Free Recommended',
+  'Shellfish-Free Recommended',
+  'Fish-Free Recommended',
+  'Soy-Free Recommended',
+  'Legume-Free Recommended',
+  'Vegan',
+  'Vegetarian',
+  'Gluten-Free',
+  'Dairy-Free',
+  'Nut-Free',
+  'Allergy-Friendly',
+  'Halal',
+  'Kosher',
+  'Contains Gluten',
+  'Contains Dairy',
+  'Contains Egg',
+  'Contains Nuts',
+  'Contains Sesame',
+  'Contains Soy',
+  'Contains Fish',
+  'Contains Shellfish',
+  'May Contain Gluten',
+  'May Contain Dairy',
+  'May Contain Egg',
+  'May Contain Nuts',
+  'May Contain Sesame',
+  'May Contain Soy',
+  'May Contain Fish',
+  'May Contain Shellfish',
 ];
 
 // Sort options
@@ -51,7 +79,7 @@ const SORT_OPTIONS = [
   { value: 'rating', label: 'Rating (High-Low)' },
 ];
 
-const RestaurantSearchBar = ({ onFilterChange, initialFilters = {} }) => {
+const RestaurantSearchBar = ({ onFilterChange, initialFilters = {}, dietaryOptions = [] }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -60,6 +88,16 @@ const RestaurantSearchBar = ({ onFilterChange, initialFilters = {} }) => {
   const [dietary, setDietary] = useState(initialFilters.dietary || []);
   const [sort, setSort] = useState(initialFilters.sort || 'name');
   const [searchDebounce, setSearchDebounce] = useState(null);
+
+  const dietaryTagOptions = Array.from(
+    new Set([
+      ...DEFAULT_DIETARY_TAG_LABELS,
+      ...dietaryOptions,
+      ...dietary,
+    ])
+  )
+    .filter(Boolean)
+    .map((label) => ({ value: label, label }));
 
   // Debounce search input (300ms)
   useEffect(() => {
@@ -148,25 +186,67 @@ const RestaurantSearchBar = ({ onFilterChange, initialFilters = {} }) => {
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((value) => {
-                    const tag = DIETARY_TAGS.find((t) => t.value === value);
+                    const tag = dietaryTagOptions.find((t) => t.value === value);
                     return (
                       <Chip
                         key={value}
                         label={tag ? tag.label : value}
                         size="small"
-                        color="primary"
-                        variant="outlined"
+                        icon={getTagChipIcon(tag ? tag.label : value)}
+                        variant="filled"
+                        sx={getTagChipSx(tag ? tag.label : value)}
                       />
                     );
                   })}
                 </Box>
               )}
             >
-              {DIETARY_TAGS.map((tag) => (
-                <MenuItem key={tag.value} value={tag.value}>
-                  {tag.label}
-                </MenuItem>
-              ))}
+              {dietaryTagOptions.map((tag) => {
+                const tone = getTagTone(tag.label);
+                const categoryLabel = getTagCategoryLabel(tag.label);
+
+                return (
+                  <MenuItem key={tag.value} value={tag.value}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%',
+                        gap: 2,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: '999px',
+                            backgroundColor: tone.accent,
+                            boxShadow: `0 0 0 3px ${tone.ring}`,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Typography variant="body2" sx={{ whiteSpace: 'normal' }}>
+                          {tag.label}
+                        </Typography>
+                      </Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: tone.text,
+                          fontWeight: 700,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {categoryLabel}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
 
@@ -213,14 +293,16 @@ const RestaurantSearchBar = ({ onFilterChange, initialFilters = {} }) => {
               />
             )}
             {dietary.map((tag) => {
-              const tagObj = DIETARY_TAGS.find((t) => t.value === tag);
+              const tagObj = dietaryTagOptions.find((t) => t.value === tag);
               return (
                 <Chip
                   key={tag}
                   label={tagObj ? tagObj.label : tag}
                   onDelete={() => setDietary(dietary.filter((t) => t !== tag))}
                   size="small"
-                  color="success"
+                  icon={getTagChipIcon(tagObj ? tagObj.label : tag)}
+                  variant="filled"
+                  sx={getTagChipSx(tagObj ? tagObj.label : tag)}
                 />
               );
             })}

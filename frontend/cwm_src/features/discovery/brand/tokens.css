@@ -1,0 +1,176 @@
+/**
+ * Chat With Menu brand tokens — scoped to the discovery module.
+ *
+ * Everything inside `.cwm-discovery` inherits these. Nothing leaks.
+ */
+
+.cwm-discovery {
+  /* ─── Core brand palette ─── */
+  --cwm-blue:         #1E9BFF;     /* punchy cobalt — matches bubble backdrop */
+  --cwm-blue-deep:    #0F7FE8;     /* CTA gradient bottom, chain link */
+  --cwm-blue-light:   #BFE5FF;     /* soft inputs, borders */
+  --cwm-blue-pale:    #E5F3FF;
+  --cwm-ink:          #0A2540;
+  --cwm-gray-900:     #1F2937;
+  --cwm-gray-700:     #374151;
+  --cwm-gray-500:     #6B7280;
+  --cwm-gray-200:     #E5E7EB;
+  --cwm-gray-100:     #F3F4F6;
+  --cwm-white:        #FFFFFF;
+
+  /* ─── Semantic ─── */
+  --cwm-save:         #FF3B5C;                      /* FIX #9 — saved heart red */
+  --cwm-save-halo:    rgba(255, 59, 92, 0.35);
+  --cwm-skip:         #DC2626;
+  --cwm-green:        #16803C;
+  --cwm-amber:        #B45309;
+
+  /* ─── Type ─── */
+  --cwm-font:         "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --cwm-font-weight-body:    500;
+  --cwm-font-weight-strong:  700;
+  --cwm-font-weight-display: 900;
+
+  /* ─── Radius + shadow ─── */
+  --cwm-radius-pill:  999px;
+  --cwm-radius-card:  24px;
+  --cwm-radius-xl:    20px;
+  --cwm-radius-lg:    14px;
+  --cwm-radius-md:    10px;
+  --cwm-shadow-card:  0 18px 50px rgba(13, 71, 161, 0.22), 0 4px 12px rgba(13, 71, 161, 0.10), inset 0 1px 0 rgba(255,255,255,0.9);
+  --cwm-shadow-hero:  0 30px 70px rgba(13, 71, 161, 0.30), 0 8px 20px rgba(13, 71, 161, 0.14), inset 0 1px 0 rgba(255,255,255,1);
+  --cwm-shadow-pop:   0 12px 40px rgba(13, 71, 161, 0.18);
+  --cwm-shadow-soft:  0 2px 8px rgba(13, 71, 161, 0.10);
+
+  --cwm-container:    1080px;
+
+  font-family: var(--cwm-font);
+  font-weight: var(--cwm-font-weight-body);
+  color: var(--cwm-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-top: 16px;                                /* FIX #14 */
+}
+
+.cwm-discovery * {
+  box-sizing: border-box;
+}
+
+/* ─── FIX #3 — Bubble-blue backdrop + food-glyph watermark ─── */
+.cwm-discovery[data-with-backdrop="true"] {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 20% 0%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(900px 500px at 90% 100%, rgba(255, 255, 255, 0.35), transparent 60%),
+    linear-gradient(160deg, #BCE7FF 0%, #5BC2FF 45%, #1E9BFF 100%);
+  background-attachment: fixed;
+  position: relative;
+}
+
+.cwm-discovery[data-with-backdrop="true"]::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle at 8%  12%, rgba(255,255,255,0.18) 0 6px, transparent 7px),
+    radial-gradient(circle at 18% 70%, rgba(255,255,255,0.12) 0 4px, transparent 5px),
+    radial-gradient(circle at 32% 30%, rgba(255,255,255,0.16) 0 5px, transparent 6px),
+    radial-gradient(circle at 60% 80%, rgba(255,255,255,0.14) 0 7px, transparent 8px),
+    radial-gradient(circle at 78% 22%, rgba(255,255,255,0.16) 0 5px, transparent 6px),
+    radial-gradient(circle at 92% 60%, rgba(255,255,255,0.18) 0 6px, transparent 7px);
+}
+.cwm-discovery[data-with-backdrop="true"] > * { position: relative; z-index: 1; }
+
+
+/* ─── FIX #8 — CTA primary button: gradient + halo + logo-lead ─── */
+.cwm-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: var(--cwm-radius-pill);
+  border: none;
+  background: linear-gradient(180deg, #1FA8FF 0%, #0F7FE8 100%);
+  color: var(--cwm-white);
+  font-family: var(--cwm-font);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 6px 18px rgba(15, 127, 232, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 180ms ease;
+}
+.cwm-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 24px rgba(15, 127, 232, 0.50),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.cwm-btn-primary:active { transform: translateY(0); }
+.cwm-btn-primary:focus-visible {
+  outline: 3px solid rgba(30, 155, 255, 0.4);
+  outline-offset: 2px;
+}
+
+.cwm-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: var(--cwm-radius-pill);
+  background: var(--cwm-white);
+  color: var(--cwm-blue-deep);
+  border: 2px solid var(--cwm-blue-light);
+  font-family: var(--cwm-font);
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 180ms ease;
+}
+.cwm-btn-secondary:hover {
+  border-color: var(--cwm-blue);
+}
+
+.cwm-cta-mark {
+  display: inline-flex;
+  align-items: center;
+  width: 18px;
+  height: 15px;
+}
+.cwm-cta-mark svg { width: 100%; height: 100%; display: block; }
+
+
+/* ─── FIX #11 — Group color classes (share across drawer / active-tag / subgroup) ─── */
+.cwm-discovery .cwm-grp-0 { background: #EEF0FF; color: #3730A3; border-color: #C7CAF0; }
+.cwm-discovery .cwm-grp-1 { background: #E6FBEF; color: #0F7A3A; border-color: #A6E8C2; }
+.cwm-discovery .cwm-grp-2 { background: #FFE9E9; color: #9F1818; border-color: #F4B6B6; }
+.cwm-discovery .cwm-grp-3 { background: #E0F7F5; color: #0F766E; border-color: #9CDDD6; }
+.cwm-discovery .cwm-grp-4 { background: #E5F3FF; color: #0F5FB8; border-color: #9FCBF2; }
+.cwm-discovery .cwm-grp-5 { background: #F0F4E0; color: #4D6B0E; border-color: #CCDB94; }
+.cwm-discovery .cwm-grp-6 { background: #FFE9F1; color: #9D174D; border-color: #F4B6CF; }
+.cwm-discovery .cwm-grp-7 { background: #FFF3D6; color: #8A4A00; border-color: #F2D08A; }
+.cwm-discovery .cwm-grp-8 { background: #F1E8FE; color: #5B21B6; border-color: #CFBAF0; }
+
+/* Active (selected) state — solid fill, inverted text, drop shadow */
+.cwm-discovery .cwm-grp-0.is-active { background: #4F46E5; color: #fff; border-color: #4F46E5; box-shadow: 0 4px 12px rgba(79,70,229,0.35); }
+.cwm-discovery .cwm-grp-1.is-active { background: #16803C; color: #fff; border-color: #16803C; box-shadow: 0 4px 12px rgba(22,128,60,0.35); }
+.cwm-discovery .cwm-grp-2.is-active { background: #B91C1C; color: #fff; border-color: #B91C1C; box-shadow: 0 4px 12px rgba(185,28,28,0.35); }
+.cwm-discovery .cwm-grp-3.is-active { background: #0D9488; color: #fff; border-color: #0D9488; box-shadow: 0 4px 12px rgba(13,148,136,0.35); }
+.cwm-discovery .cwm-grp-4.is-active { background: #0F7FE8; color: #fff; border-color: #0F7FE8; box-shadow: 0 4px 12px rgba(15,127,232,0.35); }
+.cwm-discovery .cwm-grp-5.is-active { background: #65891A; color: #fff; border-color: #65891A; box-shadow: 0 4px 12px rgba(101,137,26,0.35); }
+.cwm-discovery .cwm-grp-6.is-active { background: #DB2777; color: #fff; border-color: #DB2777; box-shadow: 0 4px 12px rgba(219,39,119,0.35); }
+.cwm-discovery .cwm-grp-7.is-active { background: #B45309; color: #fff; border-color: #B45309; box-shadow: 0 4px 12px rgba(180,83,9,0.35); }
+.cwm-discovery .cwm-grp-8.is-active { background: #7C3AED; color: #fff; border-color: #7C3AED; box-shadow: 0 4px 12px rgba(124,58,237,0.35); }
+
+/* Focus */
+.cwm-discovery :focus-visible {
+  outline: 3px solid rgba(30, 155, 255, 0.4);
+  outline-offset: 2px;
+}

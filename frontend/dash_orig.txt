@@ -1,0 +1,300 @@
+import React, { useEffect, useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import dataService from '../services/dataService';
+import { UserContext } from '../UserContext';
+
+import {
+  Button,
+  Typography,
+  Paper,
+  Grid,
+  Container,
+  IconButton,
+  Box,
+  Card,
+  CardContent,
+  CardActionArea,
+  Stack,
+  Divider,
+  Avatar,
+  Skeleton,
+  Chip,
+  Alert,
+} from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import PersonIcon from '@mui/icons-material/Person';
+import WarningIcon from '@mui/icons-material/Warning';
+import TuneIcon from '@mui/icons-material/Tune';
+import RestaurantIcon from '@mui/icons-material/Restaurant';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import RoomServiceIcon from '@mui/icons-material/RoomService';
+import TableBarIcon from '@mui/icons-material/TableBar';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import ExploreIcon from '@mui/icons-material/Explore';
+
+// Role constants
+const ROLE_DINER = 0;
+const ROLE_ADMIN = 1;
+const ROLE_MERCHANT = 2;
+const ROLE_SERVER = 3;
+
+const getRoleInfo = (accountType) => {
+  switch (accountType) {
+    case ROLE_ADMIN:
+      return { label: 'Admin', color: 'error', icon: <PersonIcon /> };
+    case ROLE_MERCHANT:
+      return { label: 'Restaurant Owner', color: 'secondary', icon: <StorefrontIcon /> };
+    case ROLE_SERVER:
+      return { label: 'Server', color: 'info', icon: <RoomServiceIcon /> };
+    default:
+      return { label: 'Diner', color: 'primary', icon: <RestaurantIcon /> };
+  }
+};
+
+const canUserEditRestaurants = (userData) => {
+  return userData?.account_type === ROLE_ADMIN || userData?.account_type === ROLE_MERCHANT;
+};
+
+const isServer = (userData) => {
+  return userData?.account_type === ROLE_SERVER;
+};
+
+const DashboardScreen = () => {
+  const navigate = useNavigate();
+  const { userId } = useContext(UserContext);
+  const [userData, setUserData] = useState(null);
+  const [restaurants, setRestaurants] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId || userId === 'undefined') {
+      navigate('/login');
+      return;
+    }
+
+    const fetchData = async () => {
+      try {
+        const [userDataResult, restaurantsResult] = await Promise.allSettled([
+        dataService.loadUserData(userId),
+        dataService.listRestaurants(),
+      ]);
+      if (userDataResult.status === 'fulfilled') setUserData(userDataResult.value);
+      if (restaurantsResult.status === 'fulfilled') setRestaurants(Array.isArray(restaurantsResult.value) ? restaurantsResult.value : (restaurantsResult.value && restaurantsResult.value.restaurants ? restaurantsResult.value.restaurants : []));
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [userId, navigate]);
+
+  const handleRestaurantSelect = (restaurantId, restaurantName) => {
+    if (isServer(userData)) {
+      navigate('/server-dashboard', { state: { restaurantId, restaurantName } });
+    } else {
+      navigate('/chat', { state: { restaurantId, restaurantName } });
+    }
+  };
+
+  const handleRestaurantDelete = async (e, restaurantId) => {
+    e.stopPropagation();
+    try {
+      const data = await dataService.deleteRestaurant(userId, restaurantId);
+      setRestaurants(data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const roleInfo = getRoleInfo(userData?.account_type);
+
+  // Role-specific settings buttons
+  const getDinerButtons = () => [
+    { label: 'Discover Restaurants', icon: <ExploreIcon />, onClick: () => navigate('/discover'), color: 'secondary' },
+    { label: 'Edit Profile', icon: <PersonIcon />, onClick: () => navigate('/edit-profile', { state: { userId } }) },
+    { label: 'My Allergies', icon: <WarningIcon />, onClick: () => navigate('/modify-preferences', { state: { restrictionType: 'allergy' } }), color: 'error' },
+    { label: 'My Preferences', icon: <TuneIcon />, onClick: () => navigate('/modify-preferences', { state: { restrictionType: 'preference' } }) },
+  ];
+
+  const getMerchantButtons = () => [
+    { label: 'Add Restaurant', icon: <AddIcon />, onClick: () => navigate('/add-restaurant'), color: 'secondary' },
+    { label: 'Manage Menus', icon: <MenuBookIcon />, onClick: () => navigate('/menu-manager'), color: 'primary' },
+    { label: 'Edit Profile', icon: <PersonIcon />, onClick: () => navigate('/edit-profile', { state: { userId } }) },
+  ];
+
+  const getServerButtons = () => [
+    { label: 'Quick Allergy Check', icon: <WarningIcon />, onClick: () => {}, color: 'error' },
+    { label: 'View Specials', icon: <RoomServiceIcon />, onClick: () => {}, color: 'secondary' },
+    { label: 'Edit Profile', icon: <PersonIcon />, onClick: () => navigate('/edit-profile', { state: { userId } }) },
+  ];
+
+  const getSettingsButtons = () => {
+    switch (userData?.account_type) {
+      case ROLE_MERCHANT:
+      case ROLE_ADMIN:
+        return getMerchantButtons();
+      case ROLE_SERVER:
+        return getServerButtons();
+      default:
+        return getDinerButtons();
+    }
+  };
+
+  const getRoleWelcomeMessage = () => {
+    switch (userData?.account_type) {
+      case ROLE_MERCHANT:
+      case ROLE_ADMIN:
+        return 'Manage your restaurants and menus';
+      case ROLE_SERVER:
+        return 'Select a restaurant to assist guests';
+      default:
+        return 'Select a restaurant to start chatting about their menu';
+    }
+  };
+
+  return (
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Header with Role Badge */}
+      <Box sx={{ mb: 4, textAlign: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+          {!loading && (
+            <Chip
+              icon={roleInfo.icon}
+              label={roleInfo.label}
+              color={roleInfo.color}
+              variant="outlined"
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+        </Box>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 700 }}>
+          {loading ? <Skeleton width={250} sx={{ mx: 'auto' }} /> : `Welcome, ${userData?.name}`}
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          {loading ? <Skeleton width={300} sx={{ mx: 'auto' }} /> : getRoleWelcomeMessage()}
+        </Typography>
+      </Box>
+
+      {/* Server Mode Alert */}
+      {isServer(userData) && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Server Mode:</strong> You can quickly check allergens and view specials for guests.
+        </Alert>
+      )}
+
+      {/* Settings Buttons */}
+      <Paper sx={{ p: 2, mb: 4 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          justifyContent="center"
+          flexWrap="wrap"
+          useFlexGap
+        >
+          {getSettingsButtons().map((btn) => (
+            <Button
+              key={btn.label}
+              variant={btn.color ? 'contained' : 'outlined'}
+              color={btn.color || 'primary'}
+              startIcon={btn.icon}
+              onClick={btn.onClick}
+              sx={{ minWidth: 160 }}
+            >
+              {btn.label}
+            </Button>
+          ))}
+        </Stack>
+      </Paper>
+
+      <Divider sx={{ mb: 4 }}>
+        <Typography variant="body2" color="text.secondary">
+          {canUserEditRestaurants(userData) ? 'Your Restaurants' : 'Available Restaurants'}
+        </Typography>
+      </Divider>
+
+      {/* Restaurants Grid */}
+      {loading ? (
+        <Grid container spacing={3}>
+          {[1, 2, 3].map((i) => (
+            <Grid item xs={12} sm={6} md={4} key={i}>
+              <Skeleton variant="rounded" height={140} />
+            </Grid>
+          ))}
+        </Grid>
+      ) : restaurants.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <StorefrontIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary">
+            No restaurants available
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {canUserEditRestaurants(userData)
+              ? 'Click "Add Restaurant" to get started'
+              : 'Check back later or contact support'}
+          </Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {restaurants.map((restaurant) => (
+            <Grid item xs={12} sm={6} md={4} key={restaurant.id}>
+              <Card
+                sx={{
+                  height: '100%',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: 4,
+                  },
+                }}
+              >
+                <CardActionArea
+                  onClick={() => handleRestaurantSelect(restaurant.id, restaurant.name)}
+                  sx={{ height: '100%' }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: isServer(userData) ? 'info.main' : 'primary.main',
+                          width: 56,
+                          height: 56,
+                        }}
+                      >
+                        {isServer(userData) ? <TableBarIcon /> : <RestaurantIcon />}
+                      </Avatar>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" component="div">
+                          {restaurant.name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {isServer(userData) ? 'Tap to assist guests' : 'Tap to chat'}
+                        </Typography>
+                      </Box>
+                      {canUserEditRestaurants(userData) && (
+                        <IconButton
+                          aria-label="delete"
+                          onClick={(e) => handleRestaurantDelete(e, restaurant.id)}
+                          sx={{
+                            color: 'grey.500',
+                            '&:hover': { color: 'error.main' },
+                          }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
+                    </Box>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Container>
+  );
+};
+
+export default DashboardScreen;

@@ -22,7 +22,7 @@ import FamilyRestroomIcon from '@mui/icons-material/FamilyRestroom';
 import ShieldIcon from '@mui/icons-material/Shield';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
-const FamilyManagementScreen = () => {
+const FamilyManagementScreen = ({ onBack }) => {
   const navigate = useNavigate();
   const [familyMembers, setFamilyMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -118,12 +118,15 @@ const FamilyManagementScreen = () => {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 1, sm: 2 } }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => {
+            if (onBack) onBack();
+            else navigate('/dashboard');
+          }}
           sx={{ mb: 2 }}
         >
           Back to Dashboard

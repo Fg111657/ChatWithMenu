@@ -33,11 +33,12 @@ import AudioRecorderModal from '../components/AudioRecorderModal';
 import { UserContext } from '../UserContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const ModifyPreferencesScreen = () => {
+const ModifyPreferencesScreen = ({ restrictionType: propRestrictionType, userId: propUserId, onBack }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const restrictionType = location.state?.restrictionType;
-  const { userId } = useContext(UserContext);
+  const restrictionType = propRestrictionType || location.state?.restrictionType;
+  const { userId: contextUserId } = useContext(UserContext);
+  const userId = propUserId || contextUserId;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,8 +110,10 @@ const ModifyPreferencesScreen = () => {
     setError(null);
     try {
       await dataService.saveUserPreferences(userId, dietaryRestrictions, restrictionType);
-      setSuccessMessage('Changes saved successfully!');
-      setTimeout(() => navigate('/dashboard'), 1500);
+      setTimeout(() => {
+        if (onBack) onBack();
+        else navigate('/dashboard');
+      }, 1500);
     } catch (error) {
       console.log(error);
       setError('Failed to save changes');
@@ -164,7 +167,7 @@ const ModifyPreferencesScreen = () => {
   }
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
+    <Container maxWidth="sm" sx={{ py: { xs: 1, sm: 2 } }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
@@ -312,7 +315,10 @@ const ModifyPreferencesScreen = () => {
             <Button
               variant="outlined"
               startIcon={<ArrowBackIcon />}
-              onClick={() => navigate('/dashboard')}
+              onClick={() => {
+                if (onBack) onBack();
+                else navigate('/dashboard');
+              }}
               sx={{ flex: 1 }}
             >
               Cancel

@@ -334,3 +334,136 @@ Market Fresh Fish MP
     }
   });
 });
+
+describe('Markdown and Raw Text Imports', () => {
+  test('markdown headings and bullet items should generate real categories and items', () => {
+    const rawMenu = `
+# Dinner Menu
+
+## Flatbreads
+- **Medicine Wheel** - Small, 12" - $14.00
+- **Medicine Wheel** - Large, 16" - $18.00
+- **Revolution** - Small, 12" - $16.00
+
+## Salads
+- Evolution Salad - $10.75 - local greens, shaved parmesan
+- Evolution Salad Bowl (Family Style: Serves 6-8) - $45.00 - serves 6 to 8 guests
+    `.trim();
+
+    const result = parseMenuText(rawMenu);
+    const categories = result.menus[0].categories;
+
+    expect(result.menus[0].name).toBe('Dinner');
+    expect(categories).toHaveLength(2);
+    expect(categories[0].name).toBe('Flatbreads');
+    expect(categories[1].name).toBe('Salads');
+
+    expect(categories[0].items).toHaveLength(3);
+    expect(categories[0].items[0].name).toBe('Medicine Wheel - Small, 12"');
+    expect(categories[0].items[0].price).toBe(14);
+    expect(categories[0].items[1].name).toBe('Medicine Wheel - Large, 16"');
+    expect(categories[0].items[1].price).toBe(18);
+
+    expect(categories[1].items).toHaveLength(2);
+    expect(categories[1].items[0].name).toBe('Evolution Salad');
+    expect(categories[1].items[0].price).toBe(10.75);
+    expect(categories[1].items[0].description).toBe('local greens, shaved parmesan');
+    expect(categories[1].items[1].name).toBe('Evolution Salad Bowl (Family Style: Serves 6-8)');
+    expect(categories[1].items[1].price).toBe(45);
+    expect(categories[1].items[1].description).toBe('serves 6 to 8 guests');
+  });
+
+  test('markdown tables should ignore header rows and parse item rows', () => {
+    const rawMenu = `
+## Desserts
+| Item | Price | Description |
+| --- | --- | --- |
+| Tiramisu | $12.00 | mascarpone, cocoa |
+| Gelato | $9.00 | vanilla bean |
+    `.trim();
+
+    const result = parseMenuText(rawMenu);
+    const categories = result.menus[0].categories;
+
+    expect(categories).toHaveLength(1);
+    expect(categories[0].name).toBe('Desserts');
+    expect(categories[0].items).toHaveLength(2);
+    expect(categories[0].items[0].name).toBe('Tiramisu');
+    expect(categories[0].items[0].price).toBe(12);
+    expect(categories[0].items[0].description).toBe('mascarpone, cocoa');
+    expect(categories[0].items[1].name).toBe('Gelato');
+    expect(categories[0].items[1].price).toBe(9);
+    expect(categories[0].items[1].description).toBe('vanilla bean');
+  });
+
+  test('pipe-separated and dash-separated inline descriptions should attach to the item', () => {
+    const rawMenu = `
+## Apps
+- Calamari | $16 | lemon aioli
+- Spaghetti Carbonara - $18 - pancetta, egg yolk, parmesan
+    `.trim();
+
+    const result = parseMenuText(rawMenu);
+    const items = result.menus[0].categories[0].items;
+
+    expect(items).toHaveLength(2);
+    expect(items[0].name).toBe('Calamari');
+    expect(items[0].price).toBe(16);
+    expect(items[0].description).toBe('lemon aioli');
+    expect(items[1].name).toBe('Spaghetti Carbonara');
+    expect(items[1].price).toBe(18);
+    expect(items[1].description).toBe('pancetta, egg yolk, parmesan');
+  });
+
+  test('parser should infer allergens, dietary tags, prep methods, removable ingredients, and add-ons', () => {
+    const rawMenu = `
+## Bowls
+- Salmon Bowl - $18 - grilled salmon, sesame glaze, avocado, pickled onions; add chicken +$5
+- Vegan Curry - $16 - vegan coconut curry with tofu, gluten-free rice
+    `.trim();
+
+    const result = parseMenuText(rawMenu);
+    const items = result.menus[0].categories[0].items;
+
+    expect(items).toHaveLength(2);
+
+    const salmonBowl = items[0];
+    expect(salmonBowl.prep_methods).toContain('grilled');
+    expect(salmonBowl.allergens).toEqual(expect.arrayContaining(['fish', 'sesame']));
+    expect(salmonBowl.modifiers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'chicken', price: 5 }),
+      ])
+    );
+    expect(salmonBowl.removable_ingredients).toEqual(
+      expect.arrayContaining(['avocado', 'pickled onions'])
+    );
+
+    const veganCurry = items[1];
+    expect(veganCurry.allergens).toContain('soy');
+    expect(veganCurry.dietary_tags).toEqual(
+      expect.arrayContaining(['vegan', 'vegetarian', 'dairy-free', 'gluten-free'])
+    );
+  });
+
+  test('parser should infer modifier groups from choice-style menu text', () => {
+    const rawMenu = `
+## Plates
+- Build Your Plate - $20 - choose protein: chicken, steak +$4, shrimp +$6
+    `.trim();
+
+    const result = parseMenuText(rawMenu);
+    const item = result.menus[0].categories[0].items[0];
+
+    expect(item.modifier_groups).toHaveLength(1);
+    expect(item.modifier_groups[0].name.toLowerCase()).toBe('choose protein');
+    expect(item.modifier_groups[0].options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'chicken', price_delta: 0 }),
+        expect.objectContaining({ name: 'steak', price_delta: 4 }),
+        expect.objectContaining({ name: 'shrimp', price_delta: 6 }),
+      ])
+    );
+    expect(item.allergens).toContain('shellfish');
+  });
+});

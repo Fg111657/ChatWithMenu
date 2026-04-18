@@ -31,6 +31,11 @@ import RestaurantIcon from '@mui/icons-material/Restaurant';
 import FamilyRestroomIcon from '@mui/icons-material/FamilyRestroom';
 import GroupsIcon from '@mui/icons-material/Groups';
 
+import DiscoveryScreen from "../features/discovery/DiscoveryScreen";
+import EditProfileScreen from './EditProfileScreen';
+import ModifyPreferencesScreen from './ModifyPreferencesScreen';
+import FamilyManagementScreen from './FamilyManagementScreen';
+import MyTableScreen from './MyTableScreen';
 // Role constants
 const ROLE_ADMIN = 1;
 const ROLE_MERCHANT = 2;
@@ -76,6 +81,7 @@ const DashboardScreen = () => {
   });
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('discovery');
 
   useEffect(() => {
     // Wait for UserContext to initialize from localStorage
@@ -164,23 +170,26 @@ const DashboardScreen = () => {
 
   // Role-specific settings buttons
   const getDinerButtons = () => [
-    { label: 'Edit Profile', icon: <PersonIcon />, onClick: () => navigate('/edit-profile', { state: { userId } }) },
-    { label: 'My Allergies', icon: <WarningIcon />, onClick: () => navigate('/modify-preferences', { state: { restrictionType: 'allergy' } }), color: 'error' },
-    { label: 'My Preferences', icon: <TuneIcon />, onClick: () => navigate('/modify-preferences', { state: { restrictionType: 'preference' } }) },
-    { label: 'Manage Family', icon: <FamilyRestroomIcon />, onClick: () => navigate('/family-management'), color: 'secondary' },
-    { label: 'My Table', icon: <GroupsIcon />, onClick: () => navigate('/my-table'), color: 'primary', description: 'Connect with trusted diners' },
+    { label: 'Restaurant Discovery', icon: <RestaurantIcon />, id: 'discovery', color: 'primary' },
+    { label: 'Edit Profile', icon: <PersonIcon />, id: 'edit-profile', color: 'info' },
+    { label: 'My Allergies', icon: <WarningIcon />, id: 'allergies', color: 'error' },
+    { label: 'My Preferences', icon: <TuneIcon />, id: 'preferences', color: 'success' },
+    { label: 'Manage Family', icon: <FamilyRestroomIcon />, id: 'family', color: 'warning' },
+    { label: 'My Table', icon: <GroupsIcon />, id: 'table', color: 'secondary' },
   ];
 
   const getMerchantButtons = () => [
+    { label: 'Restaurant Discovery', icon: <RestaurantIcon />, id: 'discovery' },
     { label: 'Add Restaurant', icon: <AddIcon />, onClick: () => navigate('/add-restaurant'), color: 'secondary' },
     { label: 'Manage Menus', icon: <MenuBookIcon />, onClick: () => navigate('/menu-manager'), color: 'primary' },
-    { label: 'Edit Profile', icon: <PersonIcon />, onClick: () => navigate('/edit-profile', { state: { userId } }) },
+    { label: 'Edit Profile', icon: <PersonIcon />, id: 'edit-profile' },
   ];
 
   const getServerButtons = () => [
+    { label: 'Restaurant Discovery', icon: <RestaurantIcon />, id: 'discovery' },
     { label: 'Quick Allergy Check', icon: <WarningIcon />, onClick: () => {}, color: 'error' },
     { label: 'View Specials', icon: <RoomServiceIcon />, onClick: () => {}, color: 'secondary' },
-    { label: 'Edit Profile', icon: <PersonIcon />, onClick: () => navigate('/edit-profile', { state: { userId } }) },
+    { label: 'Edit Profile', icon: <PersonIcon />, id: 'edit-profile' },
   ];
 
   const getSettingsButtons = () => {
@@ -210,9 +219,9 @@ const DashboardScreen = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 1, sm: 2 } }}>
       {/* Header with Role Badge */}
-      <Box sx={{ mb: 4, textAlign: 'center' }}>
+      <Box sx={{ mb: { xs: 1, sm: 2 }, textAlign: 'center' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           {!loading && (
             <Chip
@@ -239,100 +248,104 @@ const DashboardScreen = () => {
         </Alert>
       )}
 
-      {/* Settings Buttons */}
-      <Paper sx={{ p: 2, mb: 4 }}>
+      {/* Settings Buttons - Styled as a cwm-filter-bar for homogeneity */}
+      <Box 
+        sx={{ 
+          background: 'rgba(255, 255, 255, 0.85)',
+          backdropFilter: 'blur(14px) saturate(1.1)',
+          WebkitBackdropFilter: 'blur(14px) saturate(1.1)',
+          border: '1px solid rgba(255, 255, 255, 0.7)',
+          borderRadius: '22px',
+          boxShadow: '0 12px 40px rgba(13, 71, 161, 0.18), inset 0 1px 0 rgba(255,255,255,0.9)',
+          p: '14px 16px',
+          mb: { xs: 1, sm: 2 },
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
         <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          justifyContent="center"
-          flexWrap="wrap"
-          useFlexGap
+          direction="row"
+          spacing={1}
+          justifyContent={{ xs: 'flex-start', xl: 'center' }}
+          sx={{
+            overflowX: 'auto',
+            pb: 0.5,
+            scrollbarWidth: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            maskImage: 'linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%)',
+          }}
         >
           {(() => {
             const buttons = getSettingsButtons();
+            
+            const getColorTokens = (colorKey) => {
+              switch (colorKey) {
+                case 'error': return { bg: '#FFE9E9', color: '#9F1818', border: '#F4B6B6', activeBg: '#B91C1C', activeColor: '#fff', activeBorder: '#B91C1C', activeShadow: 'rgba(185,28,28,0.35)' };
+                case 'success': return { bg: '#E6FBEF', color: '#0F7A3A', border: '#A6E8C2', activeBg: '#16803C', activeColor: '#fff', activeBorder: '#16803C', activeShadow: 'rgba(22,128,60,0.35)' };
+                case 'warning': return { bg: '#FFF3D6', color: '#8A4A00', border: '#F2D08A', activeBg: '#B45309', activeColor: '#fff', activeBorder: '#B45309', activeShadow: 'rgba(180,83,9,0.35)' };
+                case 'info': return { bg: '#EEF0FF', color: '#3730A3', border: '#C7CAF0', activeBg: '#4F46E5', activeColor: '#fff', activeBorder: '#4F46E5', activeShadow: 'rgba(79,70,229,0.35)' };
+                case 'secondary': return { bg: '#F1E8FE', color: '#5B21B6', border: '#CFBAF0', activeBg: '#7C3AED', activeColor: '#fff', activeBorder: '#7C3AED', activeShadow: 'rgba(124,58,237,0.35)' };
+                case 'primary':
+                default: return { bg: '#E5F3FF', color: '#0F5FB8', border: '#9FCBF2', activeBg: '#0F7FE8', activeColor: '#fff', activeBorder: '#0F7FE8', activeShadow: 'rgba(15,127,232,0.35)' };
+              }
+            };
+            
             console.log('🔍 Settings buttons:', { buttons, isArray: Array.isArray(buttons), type: typeof buttons, userData });
-            return (Array.isArray(buttons) ? buttons : []).map((btn) => (
-              <Button
-              key={btn.label}
-              variant={btn.color ? 'contained' : 'outlined'}
-              color={btn.color || 'primary'}
-              startIcon={btn.icon}
-              onClick={btn.onClick}
-              sx={{ minWidth: 160 }}
-            >
-              {btn.label}
-            </Button>
-            ));
+            return (Array.isArray(buttons) ? buttons : []).map((btn) => {
+              const isActive = activeTab === btn.id;
+              const tokens = getColorTokens(btn.color || 'primary');
+              
+              return (
+                <Button
+                  key={btn.label}
+                  startIcon={btn.icon}
+                  onClick={btn.onClick ? btn.onClick : () => setActiveTab(btn.id)}
+                  sx={{
+                    flex: '0 0 auto',
+                    scrollSnapAlign: 'start',
+                    height: '36px',
+                    px: '14px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap',
+                    borderRadius: '999px',
+                    border: '1.5px solid',
+                    textTransform: 'none',
+                    fontFamily: '"Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    letterSpacing: 'normal',
+                    lineHeight: 'normal',
+                    borderColor: isActive ? tokens.activeBorder : tokens.border,
+                    background: isActive ? tokens.activeBg : tokens.bg,
+                    color: isActive ? tokens.activeColor : tokens.color,
+                    boxShadow: isActive ? `0 4px 12px ${tokens.activeShadow}` : 'none',
+                    transition: 'transform 120ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease',
+                    '&:hover': {
+                      background: isActive ? tokens.activeBg : 'transparent',
+                      transform: 'translateY(-1px)'
+                    },
+                    '& .MuiButton-startIcon': {
+                      marginRight: '6px', // natural spacing instead of squishing
+                      marginLeft: '-2px',
+                      '& > *:first-of-type': { fontSize: '18px' } 
+                    }
+                  }}
+                >
+                  {btn.label}
+                </Button>
+              );
+            });
           })()}
         </Stack>
-      </Paper>
+      </Box>
 
-      {/* Search Bar */}
-      <RestaurantSearchBar
-        onFilterChange={handleFilterChange}
-        initialFilters={searchFilters}
-      />
 
-      <Divider sx={{ mb: 3 }}>
-        <Typography variant="body2" color="text.secondary">
-          {canUserEditRestaurants(userData) ? 'Your Restaurants' : 'Available Restaurants'}
-          {totalRestaurants > 0 && ` (${totalRestaurants} ${totalRestaurants === 1 ? 'result' : 'results'})`}
-        </Typography>
-      </Divider>
-
-      {/* Restaurants Grid */}
-      {loading ? (
-        <Grid container spacing={3}>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Grid item xs={12} sm={6} md={4} key={i}>
-              <Skeleton variant="rounded" height={200} />
-            </Grid>
-          ))}
-        </Grid>
-      ) : restaurants.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <StorefrontIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">
-            No restaurants found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {canUserEditRestaurants(userData)
-              ? 'Click "Add Restaurant" to get started'
-              : 'Try adjusting your search filters'}
-          </Typography>
-        </Box>
-      ) : (
-        <>
-          <Grid container spacing={3}>
-            {restaurants.map((restaurant) => (
-              <Grid item xs={12} sm={6} md={4} key={restaurant.id}>
-                <RestaurantCard
-                  restaurant={restaurant}
-                  onSelect={handleRestaurantCardClick}
-                  onDelete={handleRestaurantDelete}
-                  canDelete={canUserEditRestaurants(userData)}
-                  isServerMode={isServer(userData)}
-                />
-              </Grid>
-            ))}
-          </Grid>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <Pagination
-                count={totalPages}
-                page={searchFilters.page}
-                onChange={handlePageChange}
-                color="primary"
-                size="large"
-                showFirstButton
-                showLastButton
-              />
-            </Box>
-          )}
-        </>
-      )}
 
       {/* Restaurant Details Dialog */}
       <RestaurantDetailsDialog
@@ -341,6 +354,21 @@ const DashboardScreen = () => {
         restaurantId={selectedRestaurant?.id}
         onStartChat={handleStartChat}
       />
+
+      {/* Tab Content */}
+      <Box sx={{ mt: 2 }}>
+        {activeTab === 'discovery' && (
+          <div style={{ marginTop: 8 }}>
+            <DiscoveryScreen userId={userId} withBackdrop={false} />
+          </div>
+        )}
+        {activeTab === 'edit-profile' && <EditProfileScreen userId={userId} onBack={() => setActiveTab('discovery')} />}
+        {activeTab === 'allergies' && <ModifyPreferencesScreen restrictionType="allergy" userId={userId} onBack={() => setActiveTab('discovery')} />}
+        {activeTab === 'preferences' && <ModifyPreferencesScreen restrictionType="preference" userId={userId} onBack={() => setActiveTab('discovery')} />}
+        {activeTab === 'family' && <FamilyManagementScreen onBack={() => setActiveTab('discovery')} />}
+        {activeTab === 'table' && <MyTableScreen onBack={() => setActiveTab('discovery')} />}
+      </Box>
+
     </Container>
   );
 };

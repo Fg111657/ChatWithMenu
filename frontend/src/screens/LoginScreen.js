@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../UserContext';
-import { supabase } from '../services/supabaseClient';
+import { getSupabaseClientOrThrow, isSupabaseConfigured } from '../services/supabaseClient';
 import { getOrCreateDatabaseUser } from '../services/userMappingService';
 
 import {
@@ -38,8 +38,8 @@ const LoginScreen = () => {
     setLoading(true);
 
     try {
-      // Use Supabase Auth
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
+      const client = getSupabaseClientOrThrow();
+      const { data, error: authError } = await client.auth.signInWithPassword({
         email: email,
         password: password,
       });
@@ -112,6 +112,11 @@ const LoginScreen = () => {
 
         {/* Login Form */}
         <Box component="form" onSubmit={handleLogin} sx={{ width: '100%' }}>
+          {!isSupabaseConfigured && (
+            <Alert severity="warning" sx={{ width: '100%', mb: 2 }}>
+              Login is temporarily unavailable while authentication is being configured.
+            </Alert>
+          )}
           <TextField
             fullWidth
             variant="outlined"
@@ -165,7 +170,7 @@ const LoginScreen = () => {
             color="primary"
             fullWidth
             size="large"
-            disabled={loading || !email || !password}
+            disabled={loading || !email || !password || !isSupabaseConfigured}
             sx={{ py: 1.5, mb: 2 }}
           >
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}

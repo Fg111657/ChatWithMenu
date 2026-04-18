@@ -70,7 +70,7 @@ const NavBar = () => {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <RestaurantMenuIcon sx={{ fontSize: 32 }} />
+          <Box component="img" src="/assets/logos/logo-white.webp" alt="Chat With Menu Logo" sx={{ height: 32 }} />
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             Chat With Menu
           </Typography>
@@ -199,7 +199,7 @@ const NavBar = () => {
             mr: { md: 4 },
           }}
         >
-          <RestaurantMenuIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+          <Box component="img" src="/assets/logos/logo-blue.webp" alt="Chat With Menu Logo" sx={{ height: 28 }} />
           <Typography
             variant="h6"
             sx={{

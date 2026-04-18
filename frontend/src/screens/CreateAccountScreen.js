@@ -22,7 +22,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import { UserContext } from '../UserContext';
-import { supabase } from '../services/supabaseClient';
+import { getSupabaseClientOrThrow, isSupabaseConfigured } from '../services/supabaseClient';
 import { getOrCreateDatabaseUser } from '../services/userMappingService';
 import TermsAndConditionsModal from '../components/TermsAndConditionsModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
@@ -101,6 +101,11 @@ const CreateAccountScreen = () => {
     e.preventDefault();
     setError(null);
 
+    if (!isSupabaseConfigured) {
+      setError('Account creation is temporarily unavailable because authentication is not configured.');
+      return;
+    }
+
     // Validate invite code if provided
     if (inviteCodeValid === false) {
       setError('Please enter a valid invite code or leave it blank.');
@@ -118,8 +123,8 @@ const CreateAccountScreen = () => {
     setError(null);
 
     try {
-      // Use Supabase Auth to create account
-      const { data, error: authError } = await supabase.auth.signUp({
+      const client = getSupabaseClientOrThrow();
+      const { data, error: authError } = await client.auth.signUp({
         email: email,
         password: password,
         options: {
@@ -133,7 +138,11 @@ const CreateAccountScreen = () => {
       });
 
       if (authError) {
-        setError(authError.message || 'Failed to create account');
+        let errorMsg = authError.message || 'Failed to create account';
+        if (errorMsg.toLowerCase().includes('data leak') || errorMsg.toLowerCase().includes('compromise')) {
+          errorMsg = 'The password you entered is considered unsafe because it was found in a previous third-party data breach. Your email/account has NOT been leaked. Please choose a stronger, unique password.';
+        }
+        setError(errorMsg);
         setLoading(false);
         return;
       }
@@ -206,6 +215,12 @@ const CreateAccountScreen = () => {
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
             {error}
+          </Alert>
+        )}
+
+        {!isSupabaseConfigured && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            Account creation is temporarily unavailable while authentication is being configured.
           </Alert>
         )}
 
@@ -311,7 +326,7 @@ const CreateAccountScreen = () => {
               variant="contained"
               size="large"
               fullWidth
-              disabled={loading || inviteCodeValid === false}
+              disabled={loading || inviteCodeValid === false || !isSupabaseConfigured}
               startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PersonAddIcon />}
             >
               {loading ? 'Creating Account...' : 'Create Account'}

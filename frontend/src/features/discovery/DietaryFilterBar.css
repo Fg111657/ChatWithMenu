@@ -1,0 +1,574 @@
+/**
+ * Filter bar + drawer. All group-colored surfaces (drawer tabs, drawer
+ * pills, active-tag chips) derive their color from the shared
+ * `.cwm-grp-0` … `.cwm-grp-8` classes defined in tokens.css. No inline
+ * color styles anywhere.
+ */
+
+.cwm-filter-bar {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 22px;
+  box-shadow: var(--cwm-shadow-pop), inset 0 1px 0 rgba(255,255,255,0.9);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cwm-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cwm-filter-row-2 { gap: 6px; }
+
+
+/* Search */
+.cwm-search {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.cwm-search input {
+  width: 100%;
+  height: 44px;
+  /* right padding leaves room for the ⌘K chip */
+  padding: 0 56px 0 42px;
+  border-radius: var(--cwm-radius-pill);
+  border: 2px solid var(--cwm-blue-light);
+  background: var(--cwm-white);
+  font-family: var(--cwm-font);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cwm-ink);
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+/* ⌘K affordance chip — right-aligned inside the search pill */
+.cwm-kbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--cwm-gray-200);
+  background: var(--cwm-gray-100, #F3F4F6);
+  color: var(--cwm-gray-500);
+  font-family: var(--cwm-font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* City pill — read-only label with pin glyph */
+.cwm-city-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--cwm-radius-pill);
+  border: 2px solid var(--cwm-blue-light);
+  background: var(--cwm-white);
+  color: var(--cwm-ink);
+  font-family: var(--cwm-font);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.cwm-city-pill svg { color: var(--cwm-blue); }
+.cwm-city-pill:hover {
+  border-color: var(--cwm-blue);
+  box-shadow: 0 0 0 4px rgba(30, 155, 255, 0.14);
+  cursor: pointer;
+}
+
+/* List / Map toggle */
+.cwm-view-toggle {
+  display: inline-flex;
+  height: 44px;
+  border-radius: var(--cwm-radius-pill);
+  border: 2px solid var(--cwm-blue-light);
+  background: var(--cwm-white);
+  padding: 3px;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+.cwm-view-btn {
+  min-width: 56px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  border-radius: var(--cwm-radius-pill);
+  font-family: var(--cwm-font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cwm-ink);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.cwm-view-btn:hover {
+  background: rgba(30, 155, 255, 0.10);
+  color: var(--cwm-blue-deep);
+}
+/* Active state — translucent grey-blue instead of solid ink. Still
+   clearly selected but doesn't dominate the filter bar. */
+.cwm-view-btn.is-active {
+  background: rgba(13, 71, 161, 0.10);
+  color: var(--cwm-blue-deep);
+  box-shadow: inset 0 0 0 1px rgba(13, 71, 161, 0.18);
+}
+.cwm-search input:focus {
+  border-color: var(--cwm-blue);
+  box-shadow: 0 0 0 4px rgba(30, 155, 255, 0.18);
+}
+.cwm-search svg {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cwm-gray-500);
+  pointer-events: none;
+}
+
+/* Selects */
+.cwm-filter-select {
+  height: 36px;
+  padding: 0 32px 0 14px;
+  border-radius: var(--cwm-radius-pill);
+  border: 2px solid var(--cwm-blue-light);
+  background: var(--cwm-white);
+  font-family: var(--cwm-font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cwm-ink);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  outline: none;
+  min-width: 140px;
+  max-width: 200px;
+  flex: 0 0 auto;
+  transition: border-color 180ms ease;
+}
+.cwm-filter-select:hover {
+  border-color: var(--cwm-blue);
+  box-shadow: 0 0 0 4px rgba(30, 155, 255, 0.14);
+}
+.cwm-filter-select:focus { border-color: var(--cwm-blue); }
+
+.cwm-filter-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--cwm-gray-200);
+  margin: 0 2px;
+  flex: 0 0 auto;
+}
+
+/* Group-axis separator — louder than .cwm-filter-divider. Marks the
+   boundary between the Cuisine axis, the Type axis, and the Dietary axis
+   so the three feel like distinct filter groups rather than one long row. */
+.cwm-axis-sep {
+  width: 1px;
+  height: 24px;
+  background: rgba(13, 71, 161, 0.15);
+  margin: 0 6px;
+  flex: 0 0 auto;
+}
+
+/* Type pills — horizontal scroll with scroll-snap and a right-edge fade
+   mask so "Loved by Friends" etc. don't clip mid-character on narrow
+   viewports (the visible-but-cut-off look read as a layout bug). */
+.cwm-type-pills {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 280px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px 0;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+          mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+}
+.cwm-type-pills::-webkit-scrollbar { display: none; }
+.cwm-type-pill { scroll-snap-align: start; }
+
+.cwm-type-pill {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--cwm-radius-pill);
+  border: 1.5px solid var(--cwm-gray-200);
+  background: var(--cwm-white);
+  color: var(--cwm-ink);
+  font-family: var(--cwm-font);
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.cwm-type-pill:hover {
+  border-color: var(--cwm-blue);
+  box-shadow: 0 0 0 4px rgba(30, 155, 255, 0.14);
+}
+/* Active state — LIGHT translucent blue-tint, not solid black. The
+   previous solid-ink background read as the loudest element on the
+   page and stole attention from the restaurant card. */
+.cwm-type-pill.is-active {
+  background: rgba(30, 155, 255, 0.14);
+  color: var(--cwm-blue-deep);
+  border-color: var(--cwm-blue);
+}
+
+/* Dietary button — visually heavier than Cuisine/Sort selects because
+   this is the headline control of the filter bar. Bolder weight + deeper
+   shadow signal it as a primary action. */
+.cwm-dietary-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--cwm-radius-pill);
+  border: 2px solid var(--cwm-blue);
+  background: var(--cwm-white);
+  color: var(--cwm-blue-deep);
+  font-family: var(--cwm-font);
+  font-weight: 700;
+  font-size: 13.5px;
+  box-shadow: 0 2px 6px rgba(13, 71, 161, 0.10);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 180ms ease;
+  flex: 0 0 auto;
+}
+.cwm-dietary-btn:hover {
+  border-color: var(--cwm-blue);
+  box-shadow: 0 0 0 4px rgba(30, 155, 255, 0.18),
+              0 2px 6px rgba(13, 71, 161, 0.12);
+}
+
+.cwm-dietary-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: var(--cwm-radius-pill);
+  background: var(--cwm-save);
+  color: var(--cwm-white);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0 6px;
+  margin-left: 2px;
+}
+
+.cwm-active-tags {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+}
+
+/* Active-tag chip: color comes from .cwm-grp-N class (no inline) */
+.cwm-active-tag {
+  font-family: var(--cwm-font);
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 3px 10px;
+  height: 24px;
+  border-radius: var(--cwm-radius-pill);
+  border: 1.5px solid;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.cwm-active-tags-clear {
+  background: transparent;
+  border: none;
+  color: var(--cwm-blue-deep);
+  font-family: var(--cwm-font);
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.cwm-filter-right {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+/* Sort group — prefixes a ↕ glyph and a "Sort:" label so the select's
+   purpose reads at a glance instead of "Best Match" floating unlabeled. */
+.cwm-sort-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  border-radius: var(--cwm-radius-pill);
+  border: 2px solid var(--cwm-blue-light);
+  background: var(--cwm-white);
+  gap: 4px;
+}
+.cwm-sort-icon {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--cwm-blue-deep);
+  line-height: 1;
+}
+.cwm-sort-label {
+  font-family: var(--cwm-font);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cwm-gray-500);
+}
+.cwm-sort-select {
+  height: 30px;
+  border: none;
+  background-color: transparent;
+  padding: 0 24px 0 2px;
+  min-width: 110px;
+  font-weight: 600;
+}
+.cwm-sort-select:focus { border-color: transparent; }
+
+.cwm-result-count {
+  font-size: 13px;
+  color: var(--cwm-gray-500);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+
+/* ── Drawer ── */
+.cwm-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 37, 64, 0.35);
+  z-index: 1000;
+}
+
+.cwm-drawer {
+  background: var(--cwm-white);
+  font-family: var(--cwm-font);
+  color: var(--cwm-ink);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 60px rgba(13, 71, 161, 0.30);
+  padding: 16px;
+  z-index: 1001;
+}
+.cwm-drawer-desktop {
+  position: absolute;
+  width: 400px;
+  max-height: 480px;
+  overflow-y: auto;
+  border-radius: var(--cwm-radius-xl);
+}
+.cwm-drawer-sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  max-height: 75vh;
+  overflow-y: auto;
+  border-radius: var(--cwm-radius-xl) var(--cwm-radius-xl) 0 0;
+}
+
+.cwm-drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.cwm-drawer-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+}
+.cwm-drawer-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--cwm-gray-500);
+  padding: 4px 8px;
+  border-radius: var(--cwm-radius-pill);
+  font-family: var(--cwm-font);
+}
+.cwm-drawer-close:hover {
+  background: var(--cwm-gray-100);
+  color: var(--cwm-ink);
+}
+
+.cwm-drawer-subhead {
+  font-size: 11px;
+  color: var(--cwm-gray-500);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.cwm-drawer-search {
+  width: 100%;
+  padding: 8px 14px;
+  border: 2px solid var(--cwm-blue-light);
+  border-radius: var(--cwm-radius-pill);
+  font-family: var(--cwm-font);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 12px;
+}
+.cwm-drawer-search:focus { border-color: var(--cwm-blue); }
+
+.cwm-drawer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cwm-gray-100);
+  margin-bottom: 12px;
+}
+
+/* Drawer tab — group color class provides surface; .is-active flips to solid */
+.cwm-drawer-tab {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--cwm-radius-pill);
+  border: 1.5px solid;
+  font-family: var(--cwm-font);
+  font-weight: 800;
+  font-size: 11.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: transform 120ms ease;
+}
+.cwm-drawer-tab:hover { transform: translateY(-1px); }
+
+.cwm-drawer-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: var(--cwm-radius-pill);
+  background: var(--cwm-save);
+  color: var(--cwm-white);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cwm-drawer-body {
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cwm-drawer-section { margin-bottom: 10px; }
+
+.cwm-drawer-subgroup-label {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid;
+  border-radius: var(--cwm-radius-pill);
+  margin-bottom: 8px;
+}
+
+.cwm-drawer-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cwm-drawer-pill {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--cwm-radius-pill);
+  border: 1.5px solid;
+  font-family: var(--cwm-font);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 120ms ease;
+}
+.cwm-drawer-pill:hover { transform: translateY(-1px); }
+
+.cwm-drawer-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  background: currentColor;
+  opacity: 0.85;
+}
+.cwm-drawer-pill.is-active .cwm-drawer-pill-dot { background: #fff; opacity: 1; }
+
+.cwm-drawer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--cwm-gray-100);
+  margin-top: 8px;
+}
+.cwm-drawer-count { font-size: 11px; color: var(--cwm-gray-500); font-weight: 700; }
+.cwm-drawer-clear {
+  background: transparent;
+  border: none;
+  color: var(--cwm-blue-deep);
+  font-family: var(--cwm-font);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cwm-drawer-empty {
+  font-size: 13px;
+  color: var(--cwm-gray-500);
+  padding: 12px 4px;
+}
+
+@media (max-width: 767px) {
+  .cwm-filter-right { flex-basis: 100%; justify-content: flex-end; }
+  .cwm-active-tags { flex-basis: 100%; }
+}

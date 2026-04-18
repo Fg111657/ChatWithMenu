@@ -39,6 +39,488 @@ const MARKET_PRICE_PATTERNS = [
   /\bSEASONAL\s*PRICE\b/i,
 ];
 
+const MARKDOWN_HEADER_PATTERN = /^\s{0,3}#{1,6}\s+/;
+const MARKDOWN_BULLET_PATTERN = /^\s*(?:[-*+]\s+|\d+\.\s+)/;
+const MARKDOWN_TABLE_SEPARATOR_PATTERN = /^\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?$/;
+
+const ALLERGEN_KEYWORDS = {
+  gluten: ['bread', 'flour', 'wheat', 'pasta', 'noodle', 'tortilla', 'bun', 'croutons', 'crouton', 'breaded', 'panko', 'roux', 'soy sauce', 'teriyaki', 'tempura', 'croissant', 'bagel', 'roll', 'pita', 'brioche', 'crust', 'toast', 'sandwich', 'breadcrumbs'],
+  dairy: ['cheese', 'cream', 'milk', 'butter', 'yogurt', 'parmesan', 'mozzarella', 'cheddar', 'brie', 'gouda', 'feta', 'ricotta', 'mascarpone', 'whey', 'casein', 'ghee', 'burrata', 'provolone', 'gruyere', 'swiss', 'blue cheese', 'gorgonzola', 'ranch', 'alfredo', 'queso', 'crema', 'sour cream', 'ice cream', 'gelato'],
+  nuts: ['nut', 'almond', 'walnut', 'pecan', 'cashew', 'pistachio', 'hazelnut', 'peanut', 'macadamia', 'pine nut', 'praline', 'marzipan', 'nougat', 'pesto'],
+  eggs: ['egg', 'mayo', 'mayonnaise', 'aioli', 'hollandaise', 'custard', 'meringue', 'mousse', 'frittata', 'quiche', 'carbonara', 'caesar dressing', 'remoulade', 'tartar sauce'],
+  soy: ['soy', 'tofu', 'edamame', 'miso', 'tempeh', 'soy sauce', 'teriyaki'],
+  fish: ['fish', 'salmon', 'tuna', 'cod', 'halibut', 'tilapia', 'trout', 'bass', 'snapper', 'mahi', 'swordfish', 'anchovy', 'sardine', 'mackerel', 'caviar', 'roe'],
+  shellfish: ['shrimp', 'crab', 'lobster', 'crawfish', 'crayfish', 'prawn', 'scallop', 'clam', 'mussel', 'oyster', 'calamari', 'squid', 'octopus'],
+  sesame: ['sesame', 'tahini', 'halvah', 'hummus'],
+};
+
+const DIETARY_TAG_KEYWORDS = {
+  vegan: ['vegan', 'plant-based', 'plant based'],
+  vegetarian: ['vegetarian', 'veggie'],
+  pescatarian: ['pescatarian'],
+  'gluten-free': ['gluten-free', 'gluten free', 'gf'],
+  'dairy-free': ['dairy-free', 'dairy free', 'non-dairy', 'nondairy', 'df'],
+  keto: ['keto', 'low-carb', 'low carb'],
+  halal: ['halal'],
+  kosher: ['kosher'],
+};
+
+const PREP_METHOD_KEYWORDS = {
+  grilled: ['grilled'],
+  fried: ['fried'],
+  'deep-fried': ['deep-fried', 'deep fried'],
+  broiled: ['broiled'],
+  baked: ['baked'],
+  roasted: ['roasted'],
+  steamed: ['steamed'],
+  'sautéed': ['sautéed', 'sauteed'],
+  poached: ['poached'],
+  raw: ['raw', 'crudo', 'tartare', 'ceviche', 'sashimi'],
+  smoked: ['smoked'],
+  toasted: ['toasted'],
+  braised: ['braised'],
+};
+
+const MODIFIER_GROUP_PATTERNS = [
+  {
+    regex: /\b(?:choice of|choose|select)\s+([a-z][a-z0-9\s/&-]{1,30})\s*:\s*([^.;]+)/ig,
+    buildName: (match) => `Choose ${match[1].trim()}`,
+    getOptionsText: (match) => match[2],
+  },
+  {
+    regex: /\b(?:served with|comes with)\s+choice of\s+([^.;]+)/ig,
+    buildName: () => 'Choose One',
+    getOptionsText: (match) => match[1],
+  },
+];
+
+const REMOVABLE_INGREDIENT_LEADS = [
+  'served with',
+  'topped with',
+  'garnished with',
+  'finished with',
+  'includes',
+  'contains',
+  'made with',
+  'stuffed with',
+  'filled with',
+  'layered with',
+  'choice of',
+  'comes with',
+  'with',
+];
+
+const REMOVABLE_INGREDIENT_STOP_PHRASES = [
+  'serves',
+  'guests',
+  'market price',
+  'choice of',
+  'choose',
+  'select',
+  'add ',
+  'with ',
+];
+
+const MEAT_KEYWORDS = ['chicken', 'beef', 'steak', 'pork', 'bacon', 'sausage', 'lamb', 'veal', 'turkey', 'ham', 'prosciutto', 'meatball', 'duck'];
+
+const cleanParsedItemName = (name) => {
+  if (!name) return '';
+  return name
+    .replace(/\s*[-–:|]+\s*$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+const cleanParsedDescription = (description) => {
+  if (!description) return '';
+  return String(description)
+    .replace(/\s*[-–:|]+\s*$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+const uniqueKeepOrder = (values) => {
+  const seen = new Set();
+  const unique = [];
+
+  values.forEach((value) => {
+    const cleaned = typeof value === 'string' ? value.trim() : value;
+    if (!cleaned) return;
+    const key = typeof cleaned === 'string' ? cleaned.toLowerCase() : JSON.stringify(cleaned);
+    if (seen.has(key)) return;
+    seen.add(key);
+    unique.push(cleaned);
+  });
+
+  return unique;
+};
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const textHasKeyword = (text, keyword) => {
+  if (!text || !keyword) return false;
+  const pattern = new RegExp(`\\b${escapeRegex(keyword).replace(/\\ /g, '\\s+')}\\b`, 'i');
+  return pattern.test(text);
+};
+
+const sanitizeTextForAllergenInference = (text) => {
+  if (!text) return '';
+
+  return text
+    .replace(/\b(?:gluten|dairy|egg|soy|sesame|fish|shellfish|nut|nuts)[-\s]?free\b/gi, ' ')
+    .replace(/\b(?:without|no)\s+(?:gluten|dairy|egg|eggs|soy|sesame|fish|shellfish|nuts?)\b/gi, ' ')
+    .replace(/\bvegan\s+(?:cheese|mayo|mayonnaise|aioli|butter|cream|milk)\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+const inferTagsFromKeywordMap = (text, keywordMap) => {
+  if (!text) return [];
+
+  const tags = [];
+  Object.entries(keywordMap).forEach(([tag, keywords]) => {
+    if (keywords.some((keyword) => textHasKeyword(text, keyword))) {
+      tags.push(tag);
+    }
+  });
+  return uniqueKeepOrder(tags);
+};
+
+const inferAllergensFromText = (text) => {
+  return inferTagsFromKeywordMap(sanitizeTextForAllergenInference(text), ALLERGEN_KEYWORDS);
+};
+
+const inferDietaryTagsFromText = (text, allergens = []) => {
+  const inferred = inferTagsFromKeywordMap(text, DIETARY_TAG_KEYWORDS);
+
+  if (inferred.includes('vegan')) {
+    inferred.push('vegetarian');
+    inferred.push('dairy-free');
+  }
+
+  const lowerText = text.toLowerCase();
+  const hasSeafood = ['fish', 'shellfish'].some((allergen) => allergens.includes(allergen));
+  const hasMeat = MEAT_KEYWORDS.some((keyword) => textHasKeyword(lowerText, keyword));
+  if (hasSeafood && !hasMeat) {
+    inferred.push('pescatarian');
+  }
+
+  return uniqueKeepOrder(inferred);
+};
+
+const inferPrepMethodsFromText = (text) => {
+  const methods = inferTagsFromKeywordMap(text, PREP_METHOD_KEYWORDS);
+  if (methods.includes('deep-fried')) {
+    methods.push('fried');
+  }
+  return uniqueKeepOrder(methods);
+};
+
+const parseSimpleModifier = (text) => {
+  const match = text.match(/^(.+?)\s*(?:for\s*)?\+\$?(\d+(?:\.\d{2})?)$/i);
+  if (!match) return null;
+
+  const name = cleanParsedItemName(match[1]);
+  if (!name) return null;
+
+  return {
+    id: generateId(),
+    name,
+    price: parseFloat(match[2]),
+  };
+};
+
+const extractInlineModifiersFromText = (text) => {
+  if (!text) return [];
+
+  const modifiers = [];
+  const pattern = /(?:^|[;,.])\s*(?:add|with)\s+([^;,.]+?\+\$?\d+(?:\.\d{2})?)/ig;
+  let match = pattern.exec(text);
+  while (match) {
+    const parsed = parseSimpleModifier(match[1]);
+    if (parsed) {
+      modifiers.push(parsed);
+    }
+    match = pattern.exec(text);
+  }
+
+  return modifiers;
+};
+
+const cleanModifierOptionLabel = (value) => {
+  return cleanParsedItemName(
+    value
+      .replace(/^(?:or|and)\s+/i, '')
+      .replace(/\b(?:choice of|choose|select)\b/ig, '')
+      .trim()
+  );
+};
+
+const splitModifierOptions = (optionsText) => {
+  if (!optionsText) return [];
+
+  const normalized = optionsText
+    .replace(/\s+or\s+/gi, ', ')
+    .replace(/\s*\/\s*/g, ', ')
+    .replace(/\s{2,}/g, ' ');
+
+  return normalized
+    .split(',')
+    .map((option) => option.trim())
+    .filter(Boolean)
+    .map((option, index) => {
+      const parsedModifier = parseSimpleModifier(option);
+      const optionName = cleanModifierOptionLabel(parsedModifier?.name || option);
+      if (!optionName) return null;
+
+      return {
+        id: generateId(),
+        name: optionName,
+        price_delta: parsedModifier ? parsedModifier.price : 0,
+        is_default: false,
+        display_order: index + 1,
+      };
+    })
+    .filter(Boolean);
+};
+
+const extractModifierGroupsFromText = (text) => {
+  if (!text) return [];
+
+  const groups = [];
+
+  MODIFIER_GROUP_PATTERNS.forEach(({ regex, buildName, getOptionsText }) => {
+    const localPattern = new RegExp(regex.source, regex.flags);
+    let match = localPattern.exec(text);
+    while (match) {
+      const options = splitModifierOptions(getOptionsText(match));
+      if (options.length >= 2) {
+        groups.push({
+          id: generateId(),
+          name: cleanParsedItemName(buildName(match)),
+          selection_type: 'SINGLE',
+          min_select: 0,
+          max_select: 1,
+          required: false,
+          display_order: groups.length + 1,
+          options,
+        });
+      }
+      match = localPattern.exec(text);
+    }
+  });
+
+  return groups;
+};
+
+const normalizeIngredientPhrase = (phrase) => {
+  if (!phrase) return '';
+
+  let cleaned = phrase
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b(?:served|topped|garnished|finished|made|stuffed|filled|layered|comes)\s+with\b/ig, '')
+    .replace(/\b(?:includes|contains)\b/ig, '')
+    .replace(/^[,;:\-\s]+|[,;:\-\s]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  REMOVABLE_INGREDIENT_LEADS.forEach((lead) => {
+    const leadPattern = new RegExp(`^${escapeRegex(lead)}\\s+`, 'i');
+    cleaned = cleaned.replace(leadPattern, '').trim();
+  });
+
+  return cleaned;
+};
+
+const splitIngredientCandidates = (text) => {
+  if (!text) return [];
+
+  const commaParts = text
+    .replace(/[;]/g, ',')
+    .split(',')
+    .map((part) => normalizeIngredientPhrase(part))
+    .filter(Boolean);
+
+  const expanded = [];
+  commaParts.forEach((part) => {
+    if (!part.includes(' and ')) {
+      expanded.push(part);
+      return;
+    }
+
+    if (part.split(/\s+/).length <= 6) {
+      part.split(/\s+and\s+/i).forEach((piece) => {
+        const cleaned = normalizeIngredientPhrase(piece);
+        if (cleaned) expanded.push(cleaned);
+      });
+      return;
+    }
+
+    expanded.push(part);
+  });
+
+  return expanded;
+};
+
+const inferRemovableIngredients = (description, itemName = '') => {
+  if (!description) return [];
+
+  const clauses = [];
+  const lowerDescription = description.toLowerCase();
+  const clausePattern = /\b(?:served|topped|garnished|finished|made|stuffed|filled|layered|comes)\s+with\s+([^.;]+)/ig;
+  let clauseMatch = clausePattern.exec(description);
+  while (clauseMatch) {
+    clauses.push(clauseMatch[1]);
+    clauseMatch = clausePattern.exec(description);
+  }
+
+  if (clauses.length === 0 && lowerDescription.includes(',')) {
+    clauses.push(description);
+  }
+
+  const itemNameLower = itemName.toLowerCase();
+  const rawIngredients = clauses.flatMap((clause) => splitIngredientCandidates(clause));
+
+  return uniqueKeepOrder(
+    rawIngredients.filter((ingredient, index) => {
+      const lower = ingredient.toLowerCase();
+      if (!lower || /\$?\d/.test(lower)) return false;
+      if (REMOVABLE_INGREDIENT_STOP_PHRASES.some((phrase) => lower.includes(phrase))) return false;
+      if (lower.split(/\s+/).length > 6) return false;
+
+      const firstWord = lower.split(/\s+/)[0];
+      if (index === 0 && itemNameLower.includes(firstWord)) return false;
+
+      return true;
+    })
+  );
+};
+
+const mergeSimpleModifiers = (existing, inferred) => {
+  const seen = new Set();
+  const merged = [];
+
+  [...(existing || []), ...(inferred || [])].forEach((modifier) => {
+    if (!modifier?.name) return;
+    const key = `${modifier.name.toLowerCase()}::${Number(modifier.price || 0).toFixed(2)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push({
+      id: modifier.id || generateId(),
+      name: cleanParsedItemName(modifier.name),
+      price: Number(modifier.price || 0),
+    });
+  });
+
+  return merged;
+};
+
+const mergeModifierGroups = (existing, inferred) => {
+  const seen = new Set();
+  const merged = [];
+
+  [...(existing || []), ...(inferred || [])].forEach((group, index) => {
+    if (!group?.name || !Array.isArray(group.options) || group.options.length === 0) return;
+    const signature = `${group.name.toLowerCase()}::${group.options.map((option) => option.name.toLowerCase()).join('|')}`;
+    if (seen.has(signature)) return;
+    seen.add(signature);
+    merged.push({
+      ...group,
+      id: group.id || generateId(),
+      display_order: group.display_order || index + 1,
+      options: group.options.map((option, optionIndex) => ({
+        ...option,
+        id: option.id || generateId(),
+        display_order: option.display_order || optionIndex + 1,
+        price_delta: Number(option.price_delta || 0),
+      })),
+    });
+  });
+
+  return merged;
+};
+
+const enrichParsedItemMetadata = (item) => {
+  const inferredModifiers = extractInlineModifiersFromText(item.description);
+  const inferredModifierGroups = extractModifierGroupsFromText(item.description);
+
+  item.modifiers = mergeSimpleModifiers(item.modifiers, inferredModifiers);
+  item.modifier_groups = mergeModifierGroups(item.modifier_groups, inferredModifierGroups);
+  item.removable_ingredients = uniqueKeepOrder([
+    ...(item.removable_ingredients || []),
+    ...inferRemovableIngredients(item.description, item.name),
+  ]);
+
+  const inferenceText = [
+    item.name,
+    item.description,
+    ...(item.modifiers || []).map((modifier) => modifier.name),
+    ...(item.modifier_groups || []).flatMap((group) => group.options.map((option) => option.name)),
+    ...(item.removable_ingredients || []),
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  item.allergens = uniqueKeepOrder([...(item.allergens || []), ...inferAllergensFromText(inferenceText)]);
+  item.dietary_tags = uniqueKeepOrder([...(item.dietary_tags || []), ...inferDietaryTagsFromText(inferenceText, item.allergens)]);
+  item.prep_methods = uniqueKeepOrder([...(item.prep_methods || []), ...inferPrepMethodsFromText(inferenceText)]);
+
+  return item;
+};
+
+const normalizeMarkdownLine = (rawLine) => {
+  if (rawLine == null) return null;
+
+  let line = String(rawLine).trim();
+  if (!line) return null;
+
+  if (/^```/.test(line)) return null;
+  if (MARKDOWN_TABLE_SEPARATOR_PATTERN.test(line)) return null;
+
+  let isMarkdownHeader = false;
+  if (MARKDOWN_HEADER_PATTERN.test(line)) {
+    isMarkdownHeader = true;
+    line = line.replace(MARKDOWN_HEADER_PATTERN, '');
+  }
+
+  line = line.replace(/^>\s*/, '');
+  line = line.replace(MARKDOWN_BULLET_PATTERN, '');
+  line = line.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+  line = line.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '$1');
+  line = line.replace(/[*_`~]/g, '');
+  line = line.replace(/<br\s*\/?>/gi, ' ');
+  line = line.replace(/<\/?[^>]+>/g, ' ');
+
+  if (line.includes('|')) {
+    const cells = line.split('|').map((cell) => cell.trim()).filter(Boolean);
+    if (cells.length === 0) return null;
+
+    const looksLikeHeaderRow = cells.every((cell) =>
+      /^(item|dish|name|description|details|notes|price|cost|category)$/i.test(cell)
+    );
+    if (looksLikeHeaderRow) return null;
+
+    const priceCellIndex = cells.findIndex((cell) => isMarketPriceToken(cell) || /^\$?\d+(?:\.\d{2})?$/.test(cell));
+    if (priceCellIndex > 0) {
+      const leadingCells = cells.slice(0, priceCellIndex).join(' - ');
+      const trailingCells = cells.slice(priceCellIndex + 1).join(' - ');
+      line = trailingCells
+        ? `${leadingCells} ${cells[priceCellIndex]} - ${trailingCells}`.trim()
+        : `${leadingCells} ${cells[priceCellIndex]}`.trim();
+    } else {
+      line = cells.join(' - ');
+    }
+  }
+
+  line = line.replace(/\s{2,}/g, ' ').trim();
+  if (!line) return null;
+
+  return {
+    text: line,
+    isMarkdownHeader,
+  };
+};
+
 /**
  * Check if a token indicates market pricing
  */
@@ -154,11 +636,49 @@ export const parseLineWithModifiers = (line) => {
   // Strip "Item:" prefix if present
   line = line.replace(/^Item:\s*/i, '').trim();
 
+  const inlineDescriptionPatterns = [
+    /^(.+?)\s*[-–|]\s*(MP|M\/P|MARKET\s+PRICE|MARKET|SEASONAL\s+PRICE|\$?\d+(?:\.\d{2})?)\s*[-–|]\s*(.+)$/i,
+    /^(.+?)\s+(MP|M\/P|MARKET\s+PRICE|MARKET|SEASONAL\s+PRICE|\$?\d+(?:\.\d{2})?)\s*[-–|]\s*(.+)$/i,
+  ];
+
+  for (const pattern of inlineDescriptionPatterns) {
+    const match = line.match(pattern);
+    if (!match) continue;
+
+    const [, rawName, rawPrice, rawDescription] = match;
+    const name = cleanParsedItemName(rawName);
+    const description = cleanParsedDescription(rawDescription);
+
+    if (!name || !description) continue;
+
+    if (isMarketPriceToken(rawPrice)) {
+      return {
+        name,
+        description,
+        price: null,
+        price_type: 'MP',
+        modifiers: [],
+      };
+    }
+
+    const numericPrice = rawPrice.replace(/^\$/, '');
+    if (!/^\d+(?:\.\d{2})?$/.test(numericPrice)) continue;
+
+    return {
+      name,
+      description,
+      price: parseFloat(numericPrice),
+      price_type: 'FIXED',
+      modifiers: [],
+    };
+  }
+
   // Check for market price FIRST (multi-word patterns need more flexible matching)
   const mpMatch = line.match(/^(.+?)\s+(MP|M\/P|MARKET\s+PRICE|MARKET|SEASONAL\s+PRICE)\s*$/i);
   if (mpMatch) {
     return {
-      name: mpMatch[1].trim(),
+      name: cleanParsedItemName(mpMatch[1]),
+      description: '',
       price: null,
       price_type: 'MP',
       modifiers: [],
@@ -170,15 +690,16 @@ export const parseLineWithModifiers = (line) => {
 
   if (parts.length === 1) {
     // No pipe - check for "extra $X" or "add $X" modifier pattern
-    const extraMatch = line.match(/^(.+?)\s+\$?(\d+(?:\.\d{2})?)\s*[-–]\s*(.+?)\s+(?:extra|add)?\s*\$?(\d+(?:\.\d{2})?)\s*$/i);
+    const extraMatch = line.match(/^(.+?)\s+\$?(\d+(?:\.\d{2})?)\s*[-–]\s*(.+?)\s+(?:extra|add)\s*\$?(\d+(?:\.\d{2})?)\s*$/i);
     if (extraMatch) {
       return {
-        name: extraMatch[1].trim(),
+        name: cleanParsedItemName(extraMatch[1]),
+        description: '',
         price: parseFloat(extraMatch[2]),
         price_type: 'FIXED',
         modifiers: [{
           id: generateId(),
-          name: extraMatch[3].trim(),
+          name: cleanParsedItemName(extraMatch[3]),
           price: parseFloat(extraMatch[4]),
         }],
       };
@@ -186,9 +707,10 @@ export const parseLineWithModifiers = (line) => {
 
     // Simple line: "Dish Name 12.99"
     const simpleMatch = line.match(/^(.+?)\s+\$?(\d+(?:\.\d{2})?)\s*$/);
-    if (simpleMatch && simpleMatch[1].trim().length > 2) {
+    if (simpleMatch && cleanParsedItemName(simpleMatch[1]).length > 2) {
       return {
-        name: simpleMatch[1].trim(),
+        name: cleanParsedItemName(simpleMatch[1]),
+        description: '',
         price: parseFloat(simpleMatch[2]),
         price_type: 'FIXED',
         modifiers: [],
@@ -204,7 +726,7 @@ export const parseLineWithModifiers = (line) => {
 
   if (!baseMatch) return null;
 
-  const name = baseMatch[1].trim();
+  const name = cleanParsedItemName(baseMatch[1]);
   const basePrice = parseFloat(baseMatch[2]);
   const modifiers = [];
 
@@ -218,12 +740,12 @@ export const parseLineWithModifiers = (line) => {
       const modPrice = parseFloat(sharedMatch[3]) - basePrice;
       modifiers.push({
         id: generateId(),
-        name: sharedMatch[1].trim(),
+        name: cleanParsedItemName(sharedMatch[1]),
         price: modPrice,
       });
       modifiers.push({
         id: generateId(),
-        name: sharedMatch[2].trim(),
+        name: cleanParsedItemName(sharedMatch[2]),
         price: modPrice,
       });
       continue;
@@ -235,7 +757,7 @@ export const parseLineWithModifiers = (line) => {
       const modPrice = parseFloat(indivMatch[2]) - basePrice;
       modifiers.push({
         id: generateId(),
-        name: indivMatch[1].trim(),
+        name: cleanParsedItemName(indivMatch[1]),
         price: modPrice,
       });
     }
@@ -243,6 +765,7 @@ export const parseLineWithModifiers = (line) => {
 
   return {
     name,
+    description: '',
     price: basePrice,
     price_type: 'FIXED',
     modifiers,
@@ -348,14 +871,57 @@ export const parseMenuText = (menuText) => {
   let pendingDishName = null; // Track dish name without price (PDF-style format)
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const normalizedLine = normalizeMarkdownLine(lines[i]);
+    if (!normalizedLine) continue;
+
+    const line = normalizedLine.text;
+    const isMarkdownHeader = normalizedLine.isMarkdownHeader;
+
     if (!line) continue;
+
+    if (isMarkdownHeader) {
+      const headerText = line.replace(/\bmenu\b/i, '').trim();
+      const headerMealPeriod = detectMealPeriod(line);
+
+      if (headerMealPeriod && currentCategory.items.length === 0 && menu.menus[0].categories.length === 0) {
+        menu.menus[0].name = headerMealPeriod;
+        menu.menus[0].meal_period = headerMealPeriod.toLowerCase();
+        pendingDishName = null;
+        pendingDescription = [];
+        lastItem = null;
+        continue;
+      }
+
+      if (headerText) {
+        if (lastItem && pendingDescription.length > 0) {
+          lastItem.description = (lastItem.description + ' ' + pendingDescription.join(' ')).trim();
+          enrichParsedItemMetadata(lastItem);
+          pendingDescription = [];
+        }
+
+        pendingDishName = null;
+
+        if (currentCategory.items.length > 0) {
+          menu.menus[0].categories.push(currentCategory);
+        }
+
+        currentCategory = {
+          id: generateId(),
+          name: formatCategoryName(headerText),
+          display_order: menu.menus[0].categories.length + 1,
+          items: [],
+        };
+        lastItem = null;
+        continue;
+      }
+    }
 
     // Handle "Item: Name" structured format
     if (/^Item:\s*/i.test(line)) {
       // Flush pending description to last item
       if (lastItem && pendingDescription.length > 0) {
         lastItem.description = (lastItem.description + ' ' + pendingDescription.join(' ')).trim();
+        enrichParsedItemMetadata(lastItem);
         pendingDescription = [];
       }
 
@@ -365,7 +931,7 @@ export const parseMenuText = (menuText) => {
       let description = '';
 
       // Look ahead for Price: line
-      const nextLine = lines[i + 1]?.trim();
+      const nextLine = normalizeMarkdownLine(lines[i + 1])?.text;
       if (nextLine && /^Price:\s*/i.test(nextLine)) {
         const priceText = nextLine.replace(/^Price:\s*/i, '').trim();
         if (isMarketPriceToken(priceText)) {
@@ -380,7 +946,7 @@ export const parseMenuText = (menuText) => {
         i++; // Skip price line
 
         // Look for Ingr.: line after price
-        const ingrLine = lines[i + 1]?.trim();
+        const ingrLine = normalizeMarkdownLine(lines[i + 1])?.text;
         if (ingrLine && /^Ingr\.?:\s*/i.test(ingrLine)) {
           description = ingrLine.replace(/^Ingr\.?:\s*/i, '').trim();
           i++; // Skip ingredients line
@@ -392,7 +958,7 @@ export const parseMenuText = (menuText) => {
       }
 
       if (itemName) {
-        const item = {
+        const item = enrichParsedItemMetadata({
           id: generateId(),
           name: itemName,
           description: description,
@@ -408,7 +974,7 @@ export const parseMenuText = (menuText) => {
           needs_review: false,
           review_reasons: [],
           source: 'parsed', // Track that this was auto-parsed
-        };
+        });
 
         const reviewCheck = checkNeedsReview(item, line);
         item.needs_review = reviewCheck.needsReview;
@@ -425,6 +991,7 @@ export const parseMenuText = (menuText) => {
       // Flush pending description to last item
       if (lastItem && pendingDescription.length > 0) {
         lastItem.description = (lastItem.description + ' ' + pendingDescription.join(' ')).trim();
+        enrichParsedItemMetadata(lastItem);
         pendingDescription = [];
       }
 
@@ -454,10 +1021,10 @@ export const parseMenuText = (menuText) => {
         // Combine pending description + current line's text as full description
         const fullDescription = [...pendingDescription, parsed.name].join(' ').trim();
 
-        const item = {
+        const item = enrichParsedItemMetadata({
           id: generateId(),
           name: pendingDishName,
-          description: fullDescription,
+          description: cleanParsedDescription([parsed.description, fullDescription].filter(Boolean).join(' ')),
           price: parsed.price,
           price_type: parsed.price_type || 'FIXED',
           allergens: [],
@@ -470,7 +1037,7 @@ export const parseMenuText = (menuText) => {
           needs_review: false,
           review_reasons: [],
           source: 'parsed', // Track that this was auto-parsed
-        };
+        });
 
         const reviewCheck = checkNeedsReview(item, line);
         item.needs_review = reviewCheck.needsReview;
@@ -489,13 +1056,14 @@ export const parseMenuText = (menuText) => {
         // Flush any pending description to previous item
         if (lastItem && pendingDescription.length > 0) {
           lastItem.description = (lastItem.description + ' ' + pendingDescription.join(' ')).trim();
+          enrichParsedItemMetadata(lastItem);
           pendingDescription = [];
         }
 
-        const item = {
+        const item = enrichParsedItemMetadata({
           id: generateId(),
           name: parsed.name,
-          description: '',
+          description: cleanParsedDescription(parsed.description),
           price: parsed.price,
           price_type: parsed.price_type || 'FIXED',
           allergens: [],
@@ -508,7 +1076,7 @@ export const parseMenuText = (menuText) => {
           needs_review: false,
           review_reasons: [],
           source: 'parsed', // Track that this was auto-parsed
-        };
+        });
 
         const reviewCheck = checkNeedsReview(item, line);
         item.needs_review = reviewCheck.needsReview;
@@ -538,6 +1106,7 @@ export const parseMenuText = (menuText) => {
       // Flush any pending description to last item
       if (lastItem && pendingDescription.length > 0) {
         lastItem.description = (lastItem.description + ' ' + pendingDescription.join(' ')).trim();
+        enrichParsedItemMetadata(lastItem);
         pendingDescription = [];
       }
 
@@ -549,6 +1118,7 @@ export const parseMenuText = (menuText) => {
   // Flush any remaining pending description
   if (lastItem && pendingDescription.length > 0) {
     lastItem.description = (lastItem.description + ' ' + pendingDescription.join(' ')).trim();
+    enrichParsedItemMetadata(lastItem);
   }
 
   // Add final category if it has items

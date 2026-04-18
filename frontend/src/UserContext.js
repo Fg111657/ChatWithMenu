@@ -15,6 +15,14 @@ const UserProvider = ({ children }) => {
         // First check localStorage for cached userId
         const storedUserId = localStorage.getItem('userId');
 
+        if (!supabase) {
+          if (storedUserId) {
+            localStorage.removeItem('userId');
+          }
+          setUserId(null);
+          return;
+        }
+
         // Then verify Supabase session
         const { data: { session } } = await supabase.auth.getSession();
 

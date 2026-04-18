@@ -15,8 +15,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import TableBarIcon from '@mui/icons-material/TableBar';
 import LocalDiningIcon from '@mui/icons-material/LocalDining';
+import {
+  getCardTagDisplayLabel,
+  getTagChipIcon,
+  getTagChipSx,
+  shouldHideCuisineDuplicateTag,
+} from '../utils/tagVisuals';
 
-// Parse dietary tags from JSON string
 const parseDietaryTags = (tagsJson) => {
   if (!tagsJson) return [];
   try {
@@ -26,21 +31,104 @@ const parseDietaryTags = (tagsJson) => {
   }
 };
 
-// Get color for dietary tag chip
-const getDietaryTagColor = (tag) => {
-  if (tag.includes('vegan')) return 'success';
-  if (tag.includes('vegetarian')) return 'success';
-  if (tag.includes('gluten-free')) return 'warning';
-  if (tag.includes('halal') || tag.includes('kosher')) return 'info';
-  return 'default';
-};
-
-// Format dietary tag for display
-const formatDietaryTag = (tag) => {
-  return tag
+const formatDietaryTag = (tag) => (
+  tag
     .split('-')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .join(' ')
+);
+
+const buildFallbackCardTags = (restaurant) => {
+  const tags = [];
+
+  const dietaryDisplayTags = Array.isArray(restaurant.dietary_display_tags)
+    ? restaurant.dietary_display_tags
+    : [];
+
+  for (const tag of dietaryDisplayTags) {
+    if (tags.length >= 5) break;
+    if (tag === 'Recommended') continue;
+    tags.push(tag);
+  }
+
+  return tags.slice(0, 5);
+};
+
+const getVisibleCardTags = (restaurant) => {
+  const rawTags = Array.isArray(restaurant.card_tags) && restaurant.card_tags.length > 0
+    ? restaurant.card_tags
+    : (() => {
+        const fallbackTags = buildFallbackCardTags(restaurant);
+        if (fallbackTags.length > 0) return fallbackTags;
+        return parseDietaryTags(restaurant.dietary_tags).map(formatDietaryTag);
+      })();
+
+  const seenValues = new Set();
+  const normalizedTags = rawTags.filter((tag) => {
+    const displayLabel = getCardTagDisplayLabel(tag);
+    if (!tag || !displayLabel || shouldHideCuisineDuplicateTag(displayLabel, restaurant) || seenValues.has(displayLabel)) {
+      return false;
+    }
+    seenValues.add(displayLabel);
+    return true;
+  });
+  return normalizedTags.slice(0, 5);
+};
+
+const getDisplayRating = (restaurant) => {
+  const displayRating = Number(restaurant.display_rating);
+  if (!Number.isNaN(displayRating) && displayRating > 0) {
+    return displayRating;
+  }
+
+  const aggregateRating = Number(restaurant.rating_aggregate);
+  if (!Number.isNaN(aggregateRating) && aggregateRating > 0) {
+    return aggregateRating;
+  }
+
+  const googleRating = Number(restaurant.google_rating);
+  if (!Number.isNaN(googleRating) && googleRating > 0) {
+    return googleRating;
+  }
+
+  return 0;
+};
+
+const getDisplayReviewCount = (restaurant) => {
+  const displayCount = Number(restaurant.display_review_count);
+  if (!Number.isNaN(displayCount) && displayCount > 0) {
+    return displayCount;
+  }
+
+  const reviewCount = Number(restaurant.review_count);
+  if (!Number.isNaN(reviewCount) && reviewCount > 0) {
+    return reviewCount;
+  }
+
+  const googleReviewCount = Number(restaurant.google_user_ratings_total);
+  if (!Number.isNaN(googleReviewCount) && googleReviewCount > 0) {
+    return googleReviewCount;
+  }
+
+  return 0;
+};
+
+const getRatingSource = (restaurant) => {
+  if (restaurant.rating_source) {
+    return restaurant.rating_source;
+  }
+
+  const reviewCount = Number(restaurant.review_count);
+  if (!Number.isNaN(reviewCount) && reviewCount > 0) {
+    return 'reviews';
+  }
+
+  const googleReviewCount = Number(restaurant.google_user_ratings_total);
+  if (!Number.isNaN(googleReviewCount) && googleReviewCount > 0) {
+    return 'google';
+  }
+
+  return null;
 };
 
 const RestaurantCard = ({
@@ -50,9 +138,10 @@ const RestaurantCard = ({
   canDelete = false,
   isServerMode = false,
 }) => {
-  const dietaryTags = parseDietaryTags(restaurant.dietary_tags);
-  const avgRating = restaurant.rating_aggregate || 0;
-  const reviewCount = restaurant.review_count || 0;
+  const visibleCardTags = getVisibleCardTags(restaurant);
+  const avgRating = getDisplayRating(restaurant);
+  const reviewCount = getDisplayReviewCount(restaurant);
+  const ratingSource = getRatingSource(restaurant);
 
   const handleDelete = (e) => {
     e.stopPropagation();
@@ -112,6 +201,22 @@ const RestaurantCard = ({
                   </Typography>
                 </Box>
               )}
+
+              {restaurant.address && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: 'block',
+                    mt: 0.75,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {restaurant.address}
+                </Typography>
+              )}
             </Box>
 
             {canDelete && (
@@ -138,32 +243,27 @@ const RestaurantCard = ({
                 size="small"
               />
               <Typography variant="body2" color="text.secondary">
-                {avgRating.toFixed(1)} ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+                {avgRating.toFixed(1)} ({reviewCount} {ratingSource === 'google' ? 'Google ' : ''}{reviewCount === 1 ? 'review' : 'reviews'})
               </Typography>
             </Box>
           )}
 
-          {/* Dietary Tags */}
-          {dietaryTags.length > 0 && (
+          {/* Curated Card Tags */}
+          {visibleCardTags.length > 0 && (
             <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-              {dietaryTags.slice(0, 3).map((tag) => (
+              {visibleCardTags.map((tag) => (
                 <Chip
                   key={tag}
-                  label={formatDietaryTag(tag)}
+                  label={getCardTagDisplayLabel(tag)}
                   size="small"
-                  color={getDietaryTagColor(tag)}
-                  variant="outlined"
-                  sx={{ fontSize: '0.7rem' }}
+                  icon={getTagChipIcon(tag)}
+                  variant="filled"
+                  sx={{
+                    fontSize: '0.72rem',
+                    ...getTagChipSx(tag),
+                  }}
                 />
               ))}
-              {dietaryTags.length > 3 && (
-                <Chip
-                  label={`+${dietaryTags.length - 3}`}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontSize: '0.7rem' }}
-                />
-              )}
             </Stack>
           )}
 

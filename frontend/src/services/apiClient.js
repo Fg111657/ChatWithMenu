@@ -5,9 +5,10 @@
  * with the current Supabase access token.
  */
 
-import { supabase } from './supabaseClient';
+import { getSupabaseClientOrThrow } from './supabaseClient';
+import { BASE_URL } from './backendData';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || BASE_URL;
 
 /**
  * Make an authenticated API request
@@ -18,7 +19,8 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:500
  */
 export async function apiFetch(path, { method = 'GET', headers = {}, body } = {}) {
   // Get current Supabase session
-  const { data } = await supabase.auth.getSession();
+  const client = getSupabaseClientOrThrow();
+  const { data } = await client.auth.getSession();
   const token = data?.session?.access_token;
 
   // Check if body is FormData

@@ -1,0 +1,87 @@
+/* Wrapper styles for DiscoveryScreen. */
+
+.cwm-discovery-inner {
+  max-width: var(--cwm-container);
+  margin: 0 auto;
+  padding: 4px 16px 48px;
+}
+
+/* ─── FIX #4 — Brand bar: logomark tile + stacked wordmark + tagline pill ─── */
+.cwm-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 8px 18px;
+}
+
+.cwm-brand-logomark {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1FA8FF 0%, #0F7FE8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(15, 127, 232, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.cwm-brand-wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.9;
+  font-family: var(--cwm-font);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--cwm-ink);
+  font-size: 24px;
+}
+
+.cwm-brand-w-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.cwm-brand-w-with {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--cwm-blue-deep);
+  transform: translateY(-3px);
+}
+
+.cwm-brand-tagline {
+  margin-left: auto;
+  font-family: var(--cwm-font);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(10, 37, 64, 0.65);
+  padding: 8px 14px;
+  border-radius: var(--cwm-radius-pill);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(13, 71, 161, 0.12);
+}
+
+
+.cwm-discovery-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--cwm-gray-500);
+  font-size: 14px;
+  font-weight: 700;
+}
+.cwm-discovery-error {
+  color: var(--cwm-save);
+}
+
+
+@media (max-width: 640px) {
+  .cwm-brand { gap: 10px; }
+  .cwm-brand-wordmark { font-size: 20px; }
+  .cwm-brand-tagline { padding: 6px 10px; font-size: 10px; }
+}
