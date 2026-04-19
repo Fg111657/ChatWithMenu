@@ -50,7 +50,7 @@ const getRoleInfo = (accountType) => {
     case ROLE_SERVER:
       return { label: 'Server', color: 'info', icon: <RoomServiceIcon /> };
     default:
-      return { label: 'Diner', color: 'primary', icon: <RestaurantIcon /> };
+      return { label: 'Diner', color: 'primary', icon: <img src="/assets/logos/cwm-variant-21.png" alt="Diner Logo" style={{ height: '22px', width: 'auto', display: 'block', transform: 'translateY(-1px)' }} /> };
   }
 };
 

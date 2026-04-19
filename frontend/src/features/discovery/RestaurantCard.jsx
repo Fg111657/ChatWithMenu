@@ -409,7 +409,7 @@ export default function RestaurantCard({
           onClick={(e) => { e.stopPropagation(); onChat && onChat(); }}
         >
           <span className="cwm-cta-mark">
-            <LogoMarkSVG size={18} fill="#ffffff" />
+            <img src="/assets/logos/cwm-variant-17.png" alt="Chat With Menu Logo" style={{ height: '24px', width: 'auto', display: 'block', transform: 'translateY(2px)' }} />
           </span>
           <span>Chat With Menu</span>
         </button>

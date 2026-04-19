@@ -29,7 +29,7 @@ function LandingScreen() {
       >
         <Fade in timeout={800}>
           <Box>
-            <RestaurantMenuIcon sx={{ fontSize: 64, color: 'white', mb: 2 }} />
+            <img src="/assets/logos/cwm-variant-03.png" alt="Chat With Menu Logo" style={{ height: '360px', width: 'auto', display: 'block', margin: '0 auto' }} />
             <Typography
               variant="h3"
               component="h1"
